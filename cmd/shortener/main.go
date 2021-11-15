@@ -19,7 +19,7 @@ type ShortenerHandler struct {
 	seq int64
 }
 
-func (s *ShortenerHandler) getUrl(idStr string) (string, bool) {
+func (s *ShortenerHandler) getURL(idStr string) (string, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -31,7 +31,7 @@ func (s *ShortenerHandler) getUrl(idStr string) (string, bool) {
 	return longUrl, ok
 }
 
-func (s *ShortenerHandler) putUrl(longUrl string) (int64, error) {
+func (s *ShortenerHandler) putURL(longUrl string) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -48,8 +48,8 @@ func (s *ShortenerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		id := strings.TrimPrefix(r.URL.Path, "/")
-		if longUrl, ok := s.getUrl(id); ok {
-			http.Redirect(w, r, longUrl, http.StatusTemporaryRedirect)
+		if longURL, ok := s.getURL(id); ok {
+			http.Redirect(w, r, longURL, http.StatusTemporaryRedirect)
 		} else {
 			http.Error(w, "url not found", http.StatusBadRequest)
 		}
@@ -64,7 +64,7 @@ func (s *ShortenerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid request params", http.StatusBadRequest)
 			break
 		}
-		id, err := s.putUrl(string(bytes))
+		id, err := s.putURL(string(bytes))
 		if err != nil {
 			http.Error(w, "invalid request params", http.StatusBadRequest)
 		}
