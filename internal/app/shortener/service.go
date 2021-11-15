@@ -89,7 +89,7 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		w.WriteHeader(http.StatusCreated)
-		_, _ = fmt.Fprintf(w, "%s/%d", s.appDomain, id)
+		_, _ = fmt.Fprintf(w, "http://%s/%d", s.appDomain, id)
 
 	default:
 		http.Error(w, "Only GET/POST requests are allowed!", http.StatusMethodNotAllowed)
