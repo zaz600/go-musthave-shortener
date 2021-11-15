@@ -31,16 +31,16 @@ func (s *ShortenerHandler) getURL(idStr string) (string, bool) {
 	return longUrl, ok
 }
 
-func (s *ShortenerHandler) putURL(longUrl string) (int64, error) {
+func (s *ShortenerHandler) putURL(longURL string) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	_, err := url.Parse(longUrl)
+	_, err := url.Parse(longURL)
 	if err != nil {
 		return 0, err
 	}
 	s.seq++
-	s.db[s.seq] = longUrl
+	s.db[s.seq] = longURL
 	return s.seq, err
 }
 
