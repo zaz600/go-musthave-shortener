@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -35,6 +36,10 @@ func (s *ShortenerHandler) putURL(longURL string) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if longURL == "" {
+		return 0, errors.New("empty url")
+	}
+
 	_, err := url.Parse(longURL)
 	if err != nil {
 		return 0, err
@@ -67,6 +72,7 @@ func (s *ShortenerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		id, err := s.putURL(string(bytes))
 		if err != nil {
 			http.Error(w, "invalid request params", http.StatusBadRequest)
+			break
 		}
 		w.WriteHeader(http.StatusCreated)
 		_, _ = fmt.Fprintf(w, "%d", id)
