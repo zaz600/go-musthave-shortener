@@ -75,7 +75,7 @@ func (s *ShortenerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		w.WriteHeader(http.StatusCreated)
-		_, _ = fmt.Fprintf(w, "%d", id)
+		_, _ = fmt.Fprintf(w, "http://localhost:8080/%d", id)
 
 	default:
 		http.Error(w, "Only GET/POST requests are allowed!", http.StatusMethodNotAllowed)
