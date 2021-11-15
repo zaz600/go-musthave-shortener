@@ -1,94 +1,16 @@
 package main
 
 import (
-	"errors"
-	"fmt"
-	"io"
 	"log"
 	"net/http"
-	"net/url"
-	"strconv"
-	"strings"
-	"sync"
+
+	"github.com/zaz600/go-musthave-shortener/internal/app/shortener"
 )
 
-const listenAddr = ":8080"
-
-type ShortenerHandler struct {
-	mu  sync.RWMutex
-	db  map[int64]string
-	seq int64
-}
-
-func (s *ShortenerHandler) getURL(idStr string) (string, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		return "", false
-	}
-	longURL, ok := s.db[id]
-	return longURL, ok
-}
-
-func (s *ShortenerHandler) putURL(longURL string) (int64, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if longURL == "" {
-		return 0, errors.New("empty url")
-	}
-
-	_, err := url.Parse(longURL)
-	if err != nil {
-		return 0, err
-	}
-	s.seq++
-	s.db[s.seq] = longURL
-	return s.seq, err
-}
-
-func (s *ShortenerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		id := strings.TrimPrefix(r.URL.Path, "/")
-		if longURL, ok := s.getURL(id); ok {
-			http.Redirect(w, r, longURL, http.StatusTemporaryRedirect)
-		} else {
-			http.Error(w, "url not found", http.StatusBadRequest)
-		}
-	case http.MethodPost:
-		if strings.TrimPrefix(r.URL.Path, "/") != "" {
-			http.Error(w, "invalid url, use /", http.StatusBadRequest)
-			break
-		}
-
-		bytes, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "invalid request params", http.StatusBadRequest)
-			break
-		}
-		id, err := s.putURL(string(bytes))
-		if err != nil {
-			http.Error(w, "invalid request params", http.StatusBadRequest)
-			break
-		}
-		w.WriteHeader(http.StatusCreated)
-		_, _ = fmt.Fprintf(w, "http://localhost:8080/%d", id)
-
-	default:
-		http.Error(w, "Only GET/POST requests are allowed!", http.StatusMethodNotAllowed)
-	}
-}
+const listenAddr = "localhost:8080"
 
 func main() {
-	server := http.Server{
-		Addr: listenAddr,
-		Handler: &ShortenerHandler{
-			db: make(map[int64]string),
-		},
-	}
-
-	log.Fatalln(server.ListenAndServe())
+	s := shortener.NewService(listenAddr)
+	http.Handle("/", s)
+	log.Fatalln(http.ListenAndServe(listenAddr, nil))
 }
