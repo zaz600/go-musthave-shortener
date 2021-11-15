@@ -27,8 +27,8 @@ func (s *ShortenerHandler) getURL(idStr string) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	longUrl, ok := s.db[id]
-	return longUrl, ok
+	longURL, ok := s.db[id]
+	return longURL, ok
 }
 
 func (s *ShortenerHandler) putURL(longURL string) (int64, error) {
