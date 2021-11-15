@@ -68,6 +68,7 @@ func (s *ShortenerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			http.Error(w, "invalid request params", http.StatusBadRequest)
 		}
+		w.WriteHeader(http.StatusCreated)
 		_, _ = fmt.Fprintf(w, "%d", id)
 
 	default:
