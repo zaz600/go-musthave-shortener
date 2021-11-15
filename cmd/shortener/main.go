@@ -86,8 +86,7 @@ func main() {
 	server := http.Server{
 		Addr: listenAddr,
 		Handler: &ShortenerHandler{
-			db:  make(map[int64]string),
-			seq: 1,
+			db: make(map[int64]string),
 		},
 	}
 
