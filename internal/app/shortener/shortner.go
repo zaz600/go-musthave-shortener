@@ -45,7 +45,7 @@ func (s *Service) GetURL(idStr string) (string, bool) {
 func (s *Service) PutURL(longURL string) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.isValidURL(longURL) {
+	if !isValidURL(longURL) {
 		return -1, errors.New("invalid url")
 	}
 	s.seq++
@@ -54,7 +54,7 @@ func (s *Service) PutURL(longURL string) (int64, error) {
 }
 
 // isValidURL проверяет адрес на пригодность для сохранения в БД
-func (s *Service) isValidURL(longURL string) bool {
+func isValidURL(longURL string) bool {
 	if longURL == "" {
 		return false
 	}
@@ -88,6 +88,7 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid request params", http.StatusBadRequest)
 			break
 		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusCreated)
 		_, _ = fmt.Fprintf(w, "http://%s/%d", s.appDomain, id)
 
