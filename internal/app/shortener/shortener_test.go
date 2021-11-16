@@ -2,6 +2,7 @@ package shortener
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -193,4 +194,25 @@ func TestService_SuccessPath(t *testing.T) {
 	assert.Equal(t, want.code, resGet.StatusCode)
 	assert.Equal(t, want.location, resGet.Header.Get("location"))
 	assert.Equal(t, want.contentType, resGet.Header.Get("Content-Type"))
+}
+
+func TestService_PostMultiple(t *testing.T) {
+	s := Service{
+		db:        map[int64]string{100: "http://ya.ru/123"},
+		appDomain: "localhost:8080",
+	}
+
+	for i := 0; i < 5; i++ {
+		longURL := fmt.Sprintf(`https://yandex.ru/search/?lr=2&text=abc%d`, i)
+
+		h := http.HandlerFunc(s.ServeHTTP)
+		wPost := httptest.NewRecorder()
+		// сохраняем урл. Должны получить айди /1
+		requestPost := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte(longURL)))
+		h.ServeHTTP(wPost, requestPost)
+		resPost := wPost.Result()
+		defer resPost.Body.Close()
+	}
+
+	assert.Equal(t, 6, len(s.db)) // 1 + 5
 }
