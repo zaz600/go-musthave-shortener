@@ -156,7 +156,7 @@ func TestService_Post(t *testing.T) {
 }
 
 func TestService_SuccessPath(t *testing.T) {
-	longUrl := `https://yandex.ru/search/?lr=2&text=abc`
+	longURL := `https://yandex.ru/search/?lr=2&text=abc`
 
 	want := struct {
 		code        int
@@ -164,7 +164,7 @@ func TestService_SuccessPath(t *testing.T) {
 		contentType string
 	}{
 		code:        http.StatusTemporaryRedirect,
-		location:    longUrl,
+		location:    longURL,
 		contentType: "text/html; charset=utf-8",
 	}
 
@@ -178,7 +178,7 @@ func TestService_SuccessPath(t *testing.T) {
 	wPost := httptest.NewRecorder()
 
 	// сохраняем урл. Должны получить айди /1
-	requestPost := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte(longUrl)))
+	requestPost := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte(longURL)))
 	h.ServeHTTP(wPost, requestPost)
 	resPost := wPost.Result()
 	defer resPost.Body.Close()
