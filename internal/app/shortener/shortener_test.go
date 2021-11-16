@@ -211,7 +211,7 @@ func TestService_PostMultiple(t *testing.T) {
 		requestPost := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte(longURL)))
 		h.ServeHTTP(wPost, requestPost)
 		resPost := wPost.Result()
-		defer resPost.Body.Close()
+		resPost.Body.Close()
 	}
 
 	assert.Equal(t, 6, len(s.db)) // 1 + 5
