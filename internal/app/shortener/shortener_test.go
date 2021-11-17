@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zaz600/go-musthave-shortener/internal/app/repository/memoryrepository"
 )
 
 func TestService_isValidURL(t *testing.T) {
@@ -81,9 +82,9 @@ func TestService_Get(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := Service{
-				Mux:       chi.NewRouter(),
-				db:        tt.db,
-				appDomain: "localhost:8080",
+				Mux:        chi.NewRouter(),
+				repository: memoryrepository.NewMemoryLinksRepository(tt.db),
+				appDomain:  "localhost:8080",
 			}
 			s.Get("/{id}", s.GetLongURL())
 
@@ -132,16 +133,16 @@ func TestService_Post(t *testing.T) {
 			want: want{
 				code:        http.StatusBadRequest,
 				contentType: "text/plain; charset=utf-8",
-				body:        "invalid request params\n",
+				body:        "invalid url\n",
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := Service{
-				Mux:       chi.NewRouter(),
-				db:        tt.db,
-				appDomain: "localhost:8080",
+				Mux:        chi.NewRouter(),
+				repository: memoryrepository.NewMemoryLinksRepository(tt.db),
+				appDomain:  "localhost:8080",
 			}
 			s.Post("/", s.SaveLongURL())
 
@@ -172,9 +173,9 @@ func TestService_SuccessPath(t *testing.T) {
 	}
 
 	s := Service{
-		Mux:       chi.NewRouter(),
-		db:        map[int64]string{100: "http://ya.ru/123"},
-		appDomain: "localhost:8080",
+		Mux:        chi.NewRouter(),
+		repository: memoryrepository.NewMemoryLinksRepository(map[int64]string{100: "http://ya.ru/123"}),
+		appDomain:  "localhost:8080",
 	}
 	s.Post("/", s.SaveLongURL())
 	s.Get("/{id}", s.GetLongURL())
@@ -196,9 +197,9 @@ func TestService_SuccessPath(t *testing.T) {
 
 func TestService_PostMultiple(t *testing.T) {
 	s := Service{
-		Mux:       chi.NewRouter(),
-		db:        map[int64]string{100: "http://ya.ru/123"},
-		appDomain: "localhost:8080",
+		Mux:        chi.NewRouter(),
+		repository: memoryrepository.NewMemoryLinksRepository(map[int64]string{100: "http://ya.ru/123"}),
+		appDomain:  "localhost:8080",
 	}
 	s.Post("/", s.SaveLongURL())
 	s.Get("/{id}", s.GetLongURL())
@@ -211,7 +212,7 @@ func TestService_PostMultiple(t *testing.T) {
 		res.Body.Close()
 	}
 
-	assert.Equal(t, 6, len(s.db)) // 1 + 5
+	assert.Equal(t, 6, s.repository.Len()) // 1 + 5
 }
 
 func testRequest(t *testing.T, ts *httptest.Server, method, path string, body io.Reader) (*http.Response, string) {
