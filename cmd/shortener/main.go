@@ -10,6 +10,6 @@ import (
 const listenAddr = "localhost:8080"
 
 func main() {
-	s := shortener.NewService(listenAddr)
+	s := shortener.NewService(listenAddr, shortener.WithMemoryRepository(nil))
 	log.Fatalln(http.ListenAndServe(listenAddr, s))
 }

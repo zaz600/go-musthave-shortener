@@ -20,12 +20,21 @@ type Service struct {
 	repository repository.LinksRepository
 }
 
-func NewService(appDomain string) *Service {
+func NewService(appDomain string, opts ...Option) *Service {
 	s := &Service{
 		Mux:        chi.NewRouter(),
 		appDomain:  appDomain,
-		repository: memoryrepository.NewMemoryLinksRepository(nil),
+		repository: nil,
 	}
+
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	if s.repository == nil {
+		s.repository = memoryrepository.NewMemoryLinksRepository(nil)
+	}
+
 	s.Use(middleware.RequestID)
 	s.Use(middleware.RealIP)
 	s.Use(middleware.Logger)

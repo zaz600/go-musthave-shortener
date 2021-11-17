@@ -9,10 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/zaz600/go-musthave-shortener/internal/app/repository/memoryrepository"
 )
 
 func TestService_isValidURL(t *testing.T) {
@@ -81,13 +79,7 @@ func TestService_Get(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := Service{
-				Mux:        chi.NewRouter(),
-				repository: memoryrepository.NewMemoryLinksRepository(tt.db),
-				appDomain:  "localhost:8080",
-			}
-			s.Get("/{id}", s.GetLongURL())
-
+			s := NewService("localhost:8080", WithMemoryRepository(tt.db))
 			ts := httptest.NewServer(s.Mux)
 			defer ts.Close()
 
@@ -139,12 +131,7 @@ func TestService_Post(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := Service{
-				Mux:        chi.NewRouter(),
-				repository: memoryrepository.NewMemoryLinksRepository(tt.db),
-				appDomain:  "localhost:8080",
-			}
-			s.Post("/", s.SaveLongURL())
+			s := NewService("localhost:8080", WithMemoryRepository(tt.db))
 
 			ts := httptest.NewServer(s.Mux)
 			defer ts.Close()
@@ -172,13 +159,8 @@ func TestService_SuccessPath(t *testing.T) {
 		contentType: "text/html; charset=utf-8",
 	}
 
-	s := Service{
-		Mux:        chi.NewRouter(),
-		repository: memoryrepository.NewMemoryLinksRepository(map[int64]string{100: "http://ya.ru/123"}),
-		appDomain:  "localhost:8080",
-	}
-	s.Post("/", s.SaveLongURL())
-	s.Get("/{id}", s.GetLongURL())
+	db := map[int64]string{100: "http://ya.ru/123"}
+	s := NewService("localhost:8080", WithMemoryRepository(db))
 
 	ts := httptest.NewServer(s.Mux)
 	defer ts.Close()
@@ -196,13 +178,8 @@ func TestService_SuccessPath(t *testing.T) {
 }
 
 func TestService_PostMultiple(t *testing.T) {
-	s := Service{
-		Mux:        chi.NewRouter(),
-		repository: memoryrepository.NewMemoryLinksRepository(map[int64]string{100: "http://ya.ru/123"}),
-		appDomain:  "localhost:8080",
-	}
-	s.Post("/", s.SaveLongURL())
-	s.Get("/{id}", s.GetLongURL())
+	db := map[int64]string{100: "http://ya.ru/123"}
+	s := NewService("localhost:8080", WithMemoryRepository(db))
 	ts := httptest.NewServer(s.Mux)
 	defer ts.Close()
 
