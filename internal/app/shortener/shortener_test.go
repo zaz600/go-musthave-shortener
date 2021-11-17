@@ -91,6 +91,7 @@ func TestService_Get(t *testing.T) {
 			defer ts.Close()
 
 			res, _ := testRequest(t, ts, "GET", tt.queryString, nil) //nolint:bodyclose
+			defer res.Body.Close()
 			assert.Equal(t, tt.want.code, res.StatusCode)
 			assert.Equal(t, tt.want.location, res.Header.Get("location"))
 			assert.Equal(t, tt.want.contentType, res.Header.Get("Content-Type"))
@@ -148,6 +149,7 @@ func TestService_Post(t *testing.T) {
 			defer ts.Close()
 
 			res, respBody := testRequest(t, ts, "POST", tt.queryString, bytes.NewReader(tt.body)) //nolint:bodyclose
+			defer res.Body.Close()
 
 			assert.Equal(t, tt.want.code, res.StatusCode)
 			assert.Equal(t, tt.want.body, respBody)
@@ -180,14 +182,16 @@ func TestService_SuccessPath(t *testing.T) {
 	ts := httptest.NewServer(s.Mux)
 	defer ts.Close()
 
-	testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL))) //nolint:bodyclose
+	resGet, _ := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL))) //nolint:bodyclose
+	defer resGet.Body.Close()
 
 	// достаем длинный урл
-	resp, _ := testRequest(t, ts, "GET", "/1", nil) //nolint:bodyclose
+	res, _ := testRequest(t, ts, "GET", "/1", nil) //nolint:bodyclose
+	defer res.Body.Close()
 
-	assert.Equal(t, want.code, resp.StatusCode)
-	assert.Equal(t, want.location, resp.Header.Get("location"))
-	assert.Equal(t, want.contentType, resp.Header.Get("Content-Type"))
+	assert.Equal(t, want.code, res.StatusCode)
+	assert.Equal(t, want.location, res.Header.Get("location"))
+	assert.Equal(t, want.contentType, res.Header.Get("Content-Type"))
 }
 
 func TestService_PostMultiple(t *testing.T) {
@@ -203,7 +207,8 @@ func TestService_PostMultiple(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		longURL := fmt.Sprintf(`https://yandex.ru/search/?lr=2&text=abc%d`, i)
-		testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL))) //nolint:bodyclose
+		res, _ := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL))) //nolint:bodyclose
+		res.Body.Close()
 	}
 
 	assert.Equal(t, 6, len(s.db)) // 1 + 5
