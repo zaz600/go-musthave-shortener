@@ -9,9 +9,14 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 type Service struct {
+	*chi.Mux
 	mu        sync.RWMutex
 	db        map[int64]string
 	seq       int64
@@ -19,11 +24,55 @@ type Service struct {
 }
 
 func NewService(appDomain string) *Service {
-	return &Service{
+	s := &Service{
+		Mux:       chi.NewRouter(),
 		mu:        sync.RWMutex{},
 		db:        make(map[int64]string),
 		seq:       0,
 		appDomain: appDomain,
+	}
+	s.Use(middleware.RequestID)
+	s.Use(middleware.RealIP)
+	s.Use(middleware.Logger)
+	s.Use(middleware.Recoverer)
+	s.Use(middleware.Timeout(10 * time.Second))
+
+	s.Get("/{id}", s.GetLongURL())
+	s.Post("/", s.SaveLongURL())
+	return s
+}
+
+func (s *Service) GetLongURL() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "id")
+		if longURL, ok := s.GetURL(id); ok {
+			http.Redirect(w, r, longURL, http.StatusTemporaryRedirect)
+		} else {
+			http.Error(w, "url not found", http.StatusBadRequest)
+		}
+	}
+}
+
+func (s *Service) SaveLongURL() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.TrimPrefix(r.URL.Path, "/") != "" {
+			http.Error(w, "invalid url, use /", http.StatusBadRequest)
+			return
+		}
+
+		bytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "invalid request params", http.StatusBadRequest)
+			return
+		}
+		id, err := s.PutURL(string(bytes))
+		if err != nil {
+			http.Error(w, "invalid request params", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = fmt.Fprintf(w, "http://%s/%d", s.appDomain, id)
 	}
 }
 

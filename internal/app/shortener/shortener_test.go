@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestService_isValidURL(t *testing.T) {
@@ -78,16 +81,16 @@ func TestService_Get(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := Service{
+				Mux:       chi.NewRouter(),
 				db:        tt.db,
 				appDomain: "localhost:8080",
 			}
-			w := httptest.NewRecorder()
-			h := http.HandlerFunc(s.ServeHTTP)
-			request := httptest.NewRequest(http.MethodGet, tt.queryString, nil)
-			h.ServeHTTP(w, request)
-			res := w.Result()
-			defer res.Body.Close()
+			s.Get("/{id}", s.GetLongURL())
 
+			ts := httptest.NewServer(s.Mux)
+			defer ts.Close()
+
+			res, _ := testRequest(t, ts, "GET", tt.queryString, nil) //nolint:bodyclose
 			assert.Equal(t, tt.want.code, res.StatusCode)
 			assert.Equal(t, tt.want.location, res.Header.Get("location"))
 			assert.Equal(t, tt.want.contentType, res.Header.Get("Content-Type"))
@@ -135,22 +138,19 @@ func TestService_Post(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := Service{
+				Mux:       chi.NewRouter(),
 				db:        tt.db,
 				appDomain: "localhost:8080",
 			}
-			w := httptest.NewRecorder()
-			h := http.HandlerFunc(s.ServeHTTP)
-			request := httptest.NewRequest(http.MethodPost, tt.queryString, bytes.NewReader(tt.body))
-			h.ServeHTTP(w, request)
-			res := w.Result()
-			defer res.Body.Close()
-			resBody, err := io.ReadAll(res.Body)
-			if err != nil {
-				t.Fatal(err)
-			}
+			s.Post("/", s.SaveLongURL())
+
+			ts := httptest.NewServer(s.Mux)
+			defer ts.Close()
+
+			res, respBody := testRequest(t, ts, "POST", tt.queryString, bytes.NewReader(tt.body)) //nolint:bodyclose
 
 			assert.Equal(t, tt.want.code, res.StatusCode)
-			assert.Equal(t, tt.want.body, string(resBody))
+			assert.Equal(t, tt.want.body, respBody)
 			assert.Equal(t, tt.want.contentType, res.Header.Get("Content-Type"))
 		})
 	}
@@ -170,49 +170,61 @@ func TestService_SuccessPath(t *testing.T) {
 	}
 
 	s := Service{
+		Mux:       chi.NewRouter(),
 		db:        map[int64]string{100: "http://ya.ru/123"},
 		appDomain: "localhost:8080",
 	}
+	s.Post("/", s.SaveLongURL())
+	s.Get("/{id}", s.GetLongURL())
 
-	// в хелпер унести get/post
-	h := http.HandlerFunc(s.ServeHTTP)
-	wPost := httptest.NewRecorder()
+	ts := httptest.NewServer(s.Mux)
+	defer ts.Close()
 
-	// сохраняем урл. Должны получить айди /1
-	requestPost := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte(longURL)))
-	h.ServeHTTP(wPost, requestPost)
-	resPost := wPost.Result()
-	defer resPost.Body.Close()
+	testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL))) //nolint:bodyclose
 
 	// достаем длинный урл
-	wGet := httptest.NewRecorder()
-	requestGet := httptest.NewRequest(http.MethodGet, "/1", nil)
-	h.ServeHTTP(wGet, requestGet)
-	resGet := wGet.Result()
-	defer resGet.Body.Close()
+	resp, _ := testRequest(t, ts, "GET", "/1", nil) //nolint:bodyclose
 
-	assert.Equal(t, want.code, resGet.StatusCode)
-	assert.Equal(t, want.location, resGet.Header.Get("location"))
-	assert.Equal(t, want.contentType, resGet.Header.Get("Content-Type"))
+	assert.Equal(t, want.code, resp.StatusCode)
+	assert.Equal(t, want.location, resp.Header.Get("location"))
+	assert.Equal(t, want.contentType, resp.Header.Get("Content-Type"))
 }
 
 func TestService_PostMultiple(t *testing.T) {
 	s := Service{
+		Mux:       chi.NewRouter(),
 		db:        map[int64]string{100: "http://ya.ru/123"},
 		appDomain: "localhost:8080",
 	}
+	s.Post("/", s.SaveLongURL())
+	s.Get("/{id}", s.GetLongURL())
+	ts := httptest.NewServer(s.Mux)
+	defer ts.Close()
 
 	for i := 0; i < 5; i++ {
 		longURL := fmt.Sprintf(`https://yandex.ru/search/?lr=2&text=abc%d`, i)
-
-		h := http.HandlerFunc(s.ServeHTTP)
-		wPost := httptest.NewRecorder()
-		// сохраняем урл. Должны получить айди /1
-		requestPost := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte(longURL)))
-		h.ServeHTTP(wPost, requestPost)
-		resPost := wPost.Result()
-		resPost.Body.Close()
+		testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL))) //nolint:bodyclose
 	}
 
 	assert.Equal(t, 6, len(s.db)) // 1 + 5
+}
+
+func testRequest(t *testing.T, ts *httptest.Server, method, path string, body io.Reader) (*http.Response, string) {
+	req, err := http.NewRequest(method, ts.URL+path, body)
+	require.NoError(t, err)
+
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+
+	respBody, err := ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	defer resp.Body.Close()
+
+	return resp, string(respBody)
 }
