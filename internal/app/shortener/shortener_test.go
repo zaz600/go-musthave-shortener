@@ -52,13 +52,13 @@ func TestService_Get(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		db          map[int64]string
+		db          map[string]string
 		queryString string
 		want        want
 	}{
 		{
 			name:        "id exists",
-			db:          map[int64]string{1: "http://ya.ru/123"},
+			db:          map[string]string{"1": "http://ya.ru/123"},
 			queryString: "/1",
 			want: want{
 				code:        http.StatusTemporaryRedirect,
@@ -68,7 +68,7 @@ func TestService_Get(t *testing.T) {
 		},
 		{
 			name:        "id does not exists",
-			db:          map[int64]string{1: "http://ya.ru/123"},
+			db:          map[string]string{"1": "http://ya.ru/123"},
 			queryString: "/2",
 			want: want{
 				code:        http.StatusBadRequest,
@@ -101,14 +101,14 @@ func TestService_Post(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		db          map[int64]string
+		db          map[string]string
 		queryString string
 		body        []byte
 		want        want
 	}{
 		{
 			name:        "correct url",
-			db:          map[int64]string{100: "http://ya.ru/123"},
+			db:          map[string]string{"100": "http://ya.ru/123"},
 			queryString: "/",
 			body:        []byte(`https://yandex.ru/search/?lr=2&text=abc`),
 			want: want{
@@ -119,7 +119,7 @@ func TestService_Post(t *testing.T) {
 		},
 		{
 			name:        "incorrect url",
-			db:          map[int64]string{100: "http://ya.ru/123"},
+			db:          map[string]string{"100": "http://ya.ru/123"},
 			queryString: "/",
 			body:        []byte(``),
 			want: want{
@@ -159,7 +159,7 @@ func TestService_SuccessPath(t *testing.T) {
 		contentType: "text/html; charset=utf-8",
 	}
 
-	db := map[int64]string{100: "http://ya.ru/123"}
+	db := map[string]string{"100": "http://ya.ru/123"}
 	s := NewService("localhost:8080", WithMemoryRepository(db))
 
 	ts := httptest.NewServer(s.Mux)
@@ -178,7 +178,7 @@ func TestService_SuccessPath(t *testing.T) {
 }
 
 func TestService_PostMultiple(t *testing.T) {
-	db := map[int64]string{100: "http://ya.ru/123"}
+	db := map[string]string{"100": "http://ya.ru/123"}
 	s := NewService("localhost:8080", WithMemoryRepository(db))
 	ts := httptest.NewServer(s.Mux)
 	defer ts.Close()

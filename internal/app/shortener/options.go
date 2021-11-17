@@ -6,7 +6,7 @@ import (
 
 type Option func(*Service)
 
-func WithMemoryRepository(db map[int64]string) Option {
+func WithMemoryRepository(db map[string]string) Option {
 	return func(s *Service) {
 		s.repository = memoryrepository.NewMemoryLinksRepository(db)
 	}

@@ -41,15 +41,15 @@ func NewService(appDomain string, opts ...Option) *Service {
 	s.Use(middleware.Recoverer)
 	s.Use(middleware.Timeout(10 * time.Second))
 
-	s.Get("/{id}", s.GetLongURL())
+	s.Get("/{linkID}", s.GetLongURL())
 	s.Post("/", s.SaveLongURL())
 	return s
 }
 
 func (s *Service) GetLongURL() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id := chi.URLParam(r, "id")
-		if longURL, ok := s.repository.GetURL(id); ok {
+		linkID := chi.URLParam(r, "linkID")
+		if longURL, ok := s.repository.Get(linkID); ok {
 			http.Redirect(w, r, longURL, http.StatusTemporaryRedirect)
 		} else {
 			http.Error(w, "url not found", http.StatusBadRequest)
@@ -74,7 +74,7 @@ func (s *Service) SaveLongURL() http.HandlerFunc {
 			http.Error(w, "invalid url", http.StatusBadRequest)
 			return
 		}
-		id, err := s.repository.PutURL(longURL)
+		id, err := s.repository.Put(longURL)
 		if err != nil {
 			http.Error(w, "invalid request params", http.StatusBadRequest)
 			return

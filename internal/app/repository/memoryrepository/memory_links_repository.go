@@ -7,13 +7,13 @@ import (
 
 type MemoryLinksRepository struct {
 	mu  sync.RWMutex
-	db  map[int64]string
+	db  map[string]string
 	seq int64
 }
 
-func NewMemoryLinksRepository(db map[int64]string) *MemoryLinksRepository {
+func NewMemoryLinksRepository(db map[string]string) *MemoryLinksRepository {
 	if db == nil {
-		db = make(map[int64]string)
+		db = make(map[string]string)
 	}
 	return &MemoryLinksRepository{
 		mu:  sync.RWMutex{},
@@ -22,26 +22,22 @@ func NewMemoryLinksRepository(db map[int64]string) *MemoryLinksRepository {
 	}
 }
 
-// GetURL извлекает из хранилища длинный url по идентификатору
-func (m *MemoryLinksRepository) GetURL(idStr string) (string, bool) {
+// Get извлекает из хранилища длинный url по идентификатору
+func (m *MemoryLinksRepository) Get(linkID string) (string, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		return "", false
-	}
-	longURL, ok := m.db[id]
+	longURL, ok := m.db[linkID]
 	return longURL, ok
 }
 
-// PutURL сохраняет длинный url в хранилище и возвращает идентификатор,
+// Put сохраняет длинный url в хранилище и возвращает идентификатор,
 // с которым длинный url можно получить обратно
-func (m *MemoryLinksRepository) PutURL(longURL string) (int64, error) {
+func (m *MemoryLinksRepository) Put(link string) (int64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.seq++
-	m.db[m.seq] = longURL
+	m.db[strconv.FormatInt(m.seq, 10)] = link
 	return m.seq, nil
 }
 
