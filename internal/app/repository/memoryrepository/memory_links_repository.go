@@ -1,8 +1,9 @@
 package memoryrepository
 
 import (
-	"strconv"
 	"sync"
+
+	"github.com/zaz600/go-musthave-shortener/internal/app/random"
 )
 
 type MemoryLinksRepository struct {
@@ -33,12 +34,13 @@ func (m *MemoryLinksRepository) Get(linkID string) (string, bool) {
 
 // Put сохраняет длинный url в хранилище и возвращает идентификатор,
 // с которым длинный url можно получить обратно
-func (m *MemoryLinksRepository) Put(link string) (int64, error) {
+func (m *MemoryLinksRepository) Put(link string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.seq++
-	m.db[strconv.FormatInt(m.seq, 10)] = link
-	return m.seq, nil
+
+	linkID := random.RandString(8)
+	m.db[linkID] = link
+	return linkID, nil
 }
 
 func (m *MemoryLinksRepository) Len() int {

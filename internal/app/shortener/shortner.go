@@ -74,14 +74,14 @@ func (s *Service) SaveLongURL() http.HandlerFunc {
 			http.Error(w, "invalid url", http.StatusBadRequest)
 			return
 		}
-		id, err := s.repository.Put(longURL)
+		linkID, err := s.repository.Put(longURL)
 		if err != nil {
 			http.Error(w, "invalid request params", http.StatusBadRequest)
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusCreated)
-		_, _ = fmt.Fprintf(w, "http://%s/%d", s.appDomain, id)
+		_, _ = fmt.Fprintf(w, "http://%s/%s", s.appDomain, linkID)
 	}
 }
 

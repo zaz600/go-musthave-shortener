@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -105,6 +107,7 @@ func TestService_Post(t *testing.T) {
 		queryString string
 		body        []byte
 		want        want
+		correctURL  bool
 	}{
 		{
 			name:        "correct url",
@@ -114,8 +117,9 @@ func TestService_Post(t *testing.T) {
 			want: want{
 				code:        http.StatusCreated,
 				contentType: "text/html; charset=utf-8",
-				body:        "http://localhost:8080/1",
+				body:        "http://localhost:8080/",
 			},
+			correctURL: true,
 		},
 		{
 			name:        "incorrect url",
@@ -125,8 +129,9 @@ func TestService_Post(t *testing.T) {
 			want: want{
 				code:        http.StatusBadRequest,
 				contentType: "text/plain; charset=utf-8",
-				body:        "invalid url\n",
+				body:        "invalid url",
 			},
+			correctURL: false,
 		},
 	}
 	for _, tt := range tests {
@@ -140,8 +145,14 @@ func TestService_Post(t *testing.T) {
 			defer res.Body.Close()
 
 			assert.Equal(t, tt.want.code, res.StatusCode)
-			assert.Equal(t, tt.want.body, respBody)
+			assert.True(t, strings.HasPrefix(respBody, tt.want.body))
 			assert.Equal(t, tt.want.contentType, res.Header.Get("Content-Type"))
+
+			if tt.correctURL {
+				parsedURL, err := url.Parse(respBody)
+				assert.NoError(t, err)
+				assert.Len(t, parsedURL.Path, 9)
+			}
 		})
 	}
 }
@@ -165,11 +176,15 @@ func TestService_SuccessPath(t *testing.T) {
 	ts := httptest.NewServer(s.Mux)
 	defer ts.Close()
 
-	resGet, _ := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL))) //nolint:bodyclose
+	// сохраняем длинный урл
+	resGet, shortLink := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL))) //nolint:bodyclose
 	defer resGet.Body.Close()
+	assert.NotEmpty(t, shortLink)
+	parsedURL, err := url.Parse(shortLink)
+	assert.NoError(t, err)
 
 	// достаем длинный урл
-	res, _ := testRequest(t, ts, "GET", "/1", nil) //nolint:bodyclose
+	res, _ := testRequest(t, ts, "GET", parsedURL.Path, nil) //nolint:bodyclose
 	defer res.Body.Close()
 
 	assert.Equal(t, want.code, res.StatusCode)
