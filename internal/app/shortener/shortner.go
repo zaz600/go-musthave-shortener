@@ -48,11 +48,11 @@ func NewService(appDomain string, opts ...Option) *Service {
 func (s *Service) GetLongURL() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		linkID := chi.URLParam(r, "linkID")
-		if longURL, ok := s.repository.Get(linkID); ok {
+		if longURL, err := s.repository.Get(linkID); err == nil {
 			http.Redirect(w, r, longURL, http.StatusTemporaryRedirect)
-		} else {
-			http.Error(w, "url not found", http.StatusBadRequest)
+			return
 		}
+		http.Error(w, "url not found", http.StatusBadRequest)
 	}
 }
 

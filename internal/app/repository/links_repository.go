@@ -1,7 +1,7 @@
 package repository
 
 type LinksRepository interface {
-	Get(linkID string) (string, bool)
+	Get(linkID string) (string, error)
 	Put(link string) (string, error)
 	Len() int
 }

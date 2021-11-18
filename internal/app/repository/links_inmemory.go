@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/zaz600/go-musthave-shortener/internal/app/random"
@@ -22,12 +23,14 @@ func New(db map[string]string) *InMemoryLinksRepository {
 }
 
 // Get извлекает из хранилища длинный url по идентификатору
-func (m *InMemoryLinksRepository) Get(linkID string) (string, bool) {
+func (m *InMemoryLinksRepository) Get(linkID string) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	longURL, ok := m.db[linkID]
-	return longURL, ok
+	if longURL, ok := m.db[linkID]; ok {
+		return longURL, nil
+	}
+	return "", fmt.Errorf("link with id '%s' not found", linkID)
 }
 
 // Put сохраняет длинный url в хранилище и возвращает идентификатор,
