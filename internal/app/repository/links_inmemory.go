@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/zaz600/go-musthave-shortener/internal/app/random"
+	"github.com/zaz600/go-musthave-shortener/internal/random"
 )
 
 type InMemoryLinksRepository struct {
