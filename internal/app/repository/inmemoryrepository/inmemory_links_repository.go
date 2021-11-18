@@ -7,9 +7,8 @@ import (
 )
 
 type InMemoryLinksRepository struct {
-	mu  *sync.RWMutex
-	db  map[string]string
-	seq int64
+	mu *sync.RWMutex
+	db map[string]string
 }
 
 func New(db map[string]string) *InMemoryLinksRepository {
@@ -17,9 +16,8 @@ func New(db map[string]string) *InMemoryLinksRepository {
 		db = make(map[string]string)
 	}
 	return &InMemoryLinksRepository{
-		mu:  &sync.RWMutex{},
-		db:  db,
-		seq: 0,
+		mu: &sync.RWMutex{},
+		db: db,
 	}
 }
 
