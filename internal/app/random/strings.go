@@ -9,7 +9,7 @@ const charSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 var seededRand = rand.New(rand.NewSource(time.Now().UnixNano())) //nolint:gosec
 
-func RandString(length int) string {
+func String(length int) string {
 	if length < 0 {
 		return ""
 	}

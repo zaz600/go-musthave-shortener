@@ -36,7 +36,7 @@ func (m *InMemoryLinksRepository) Put(link string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	linkID := random.RandString(8)
+	linkID := random.String(8)
 	m.db[linkID] = link
 	return linkID, nil
 }
