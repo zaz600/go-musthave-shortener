@@ -1,4 +1,4 @@
-package inmemoryrepository
+package repository
 
 import (
 	"sync"
