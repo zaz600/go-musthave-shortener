@@ -44,6 +44,6 @@ func (m *InMemoryLinksRepository) Put(link string) (string, error) {
 	return linkID, nil
 }
 
-func (m *InMemoryLinksRepository) Len() int {
+func (m *InMemoryLinksRepository) Count() int {
 	return len(m.db)
 }

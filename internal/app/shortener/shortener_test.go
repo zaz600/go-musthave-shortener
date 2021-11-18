@@ -204,7 +204,7 @@ func TestService_PostMultiple(t *testing.T) {
 		res.Body.Close()
 	}
 
-	assert.Equal(t, 6, s.repository.Len()) // 1 + 5
+	assert.Equal(t, 6, s.repository.Count()) // 1 + 5
 }
 
 func testRequest(t *testing.T, ts *httptest.Server, method, path string, body io.Reader) (*http.Response, string) {
