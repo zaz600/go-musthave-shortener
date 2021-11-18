@@ -11,7 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/zaz600/go-musthave-shortener/internal/app/repository"
-	"github.com/zaz600/go-musthave-shortener/internal/app/repository/memoryrepository"
+	"github.com/zaz600/go-musthave-shortener/internal/app/repository/inmemoryrepository"
 )
 
 type Service struct {
@@ -32,7 +32,7 @@ func NewService(appDomain string, opts ...Option) *Service {
 	}
 
 	if s.repository == nil {
-		s.repository = memoryrepository.NewMemoryLinksRepository(nil)
+		s.repository = inmemoryrepository.New(nil)
 	}
 
 	s.Use(middleware.RequestID)

@@ -1,4 +1,4 @@
-package memoryrepository
+package inmemoryrepository
 
 import (
 	"sync"
@@ -6,25 +6,25 @@ import (
 	"github.com/zaz600/go-musthave-shortener/internal/app/random"
 )
 
-type MemoryLinksRepository struct {
-	mu  sync.RWMutex
+type InMemoryLinksRepository struct {
+	mu  *sync.RWMutex
 	db  map[string]string
 	seq int64
 }
 
-func NewMemoryLinksRepository(db map[string]string) *MemoryLinksRepository {
+func New(db map[string]string) *InMemoryLinksRepository {
 	if db == nil {
 		db = make(map[string]string)
 	}
-	return &MemoryLinksRepository{
-		mu:  sync.RWMutex{},
+	return &InMemoryLinksRepository{
+		mu:  &sync.RWMutex{},
 		db:  db,
 		seq: 0,
 	}
 }
 
 // Get извлекает из хранилища длинный url по идентификатору
-func (m *MemoryLinksRepository) Get(linkID string) (string, bool) {
+func (m *InMemoryLinksRepository) Get(linkID string) (string, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -34,7 +34,7 @@ func (m *MemoryLinksRepository) Get(linkID string) (string, bool) {
 
 // Put сохраняет длинный url в хранилище и возвращает идентификатор,
 // с которым длинный url можно получить обратно
-func (m *MemoryLinksRepository) Put(link string) (string, error) {
+func (m *InMemoryLinksRepository) Put(link string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -43,6 +43,6 @@ func (m *MemoryLinksRepository) Put(link string) (string, error) {
 	return linkID, nil
 }
 
-func (m *MemoryLinksRepository) Len() int {
+func (m *InMemoryLinksRepository) Len() int {
 	return len(m.db)
 }
