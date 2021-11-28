@@ -4,11 +4,15 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestService_isValidURL(t *testing.T) {
@@ -50,13 +54,13 @@ func TestService_Get(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		db          map[int64]string
+		db          map[string]string
 		queryString string
 		want        want
 	}{
 		{
 			name:        "id exists",
-			db:          map[int64]string{1: "http://ya.ru/123"},
+			db:          map[string]string{"1": "http://ya.ru/123"},
 			queryString: "/1",
 			want: want{
 				code:        http.StatusTemporaryRedirect,
@@ -66,7 +70,7 @@ func TestService_Get(t *testing.T) {
 		},
 		{
 			name:        "id does not exists",
-			db:          map[int64]string{1: "http://ya.ru/123"},
+			db:          map[string]string{"1": "http://ya.ru/123"},
 			queryString: "/2",
 			want: want{
 				code:        http.StatusBadRequest,
@@ -77,17 +81,12 @@ func TestService_Get(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := Service{
-				db:        tt.db,
-				appDomain: "localhost:8080",
-			}
-			w := httptest.NewRecorder()
-			h := http.HandlerFunc(s.ServeHTTP)
-			request := httptest.NewRequest(http.MethodGet, tt.queryString, nil)
-			h.ServeHTTP(w, request)
-			res := w.Result()
-			defer res.Body.Close()
+			s := NewService("localhost:8080", WithMemoryRepository(tt.db))
+			ts := httptest.NewServer(s.Mux)
+			defer ts.Close()
 
+			res, _ := testRequest(t, ts, "GET", tt.queryString, nil) //nolint:bodyclose
+			defer res.Body.Close()
 			assert.Equal(t, tt.want.code, res.StatusCode)
 			assert.Equal(t, tt.want.location, res.Header.Get("location"))
 			assert.Equal(t, tt.want.contentType, res.Header.Get("Content-Type"))
@@ -104,54 +103,56 @@ func TestService_Post(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		db          map[int64]string
+		db          map[string]string
 		queryString string
 		body        []byte
 		want        want
+		correctURL  bool
 	}{
 		{
 			name:        "correct url",
-			db:          map[int64]string{100: "http://ya.ru/123"},
+			db:          map[string]string{"100": "http://ya.ru/123"},
 			queryString: "/",
 			body:        []byte(`https://yandex.ru/search/?lr=2&text=abc`),
 			want: want{
 				code:        http.StatusCreated,
 				contentType: "text/html; charset=utf-8",
-				body:        "http://localhost:8080/1",
+				body:        "http://localhost:8080/",
 			},
+			correctURL: true,
 		},
 		{
 			name:        "incorrect url",
-			db:          map[int64]string{100: "http://ya.ru/123"},
+			db:          map[string]string{"100": "http://ya.ru/123"},
 			queryString: "/",
 			body:        []byte(``),
 			want: want{
 				code:        http.StatusBadRequest,
 				contentType: "text/plain; charset=utf-8",
-				body:        "invalid request params\n",
+				body:        "invalid url",
 			},
+			correctURL: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := Service{
-				db:        tt.db,
-				appDomain: "localhost:8080",
-			}
-			w := httptest.NewRecorder()
-			h := http.HandlerFunc(s.ServeHTTP)
-			request := httptest.NewRequest(http.MethodPost, tt.queryString, bytes.NewReader(tt.body))
-			h.ServeHTTP(w, request)
-			res := w.Result()
+			s := NewService("localhost:8080", WithMemoryRepository(tt.db))
+
+			ts := httptest.NewServer(s.Mux)
+			defer ts.Close()
+
+			res, respBody := testRequest(t, ts, "POST", tt.queryString, bytes.NewReader(tt.body)) //nolint:bodyclose
 			defer res.Body.Close()
-			resBody, err := io.ReadAll(res.Body)
-			if err != nil {
-				t.Fatal(err)
-			}
 
 			assert.Equal(t, tt.want.code, res.StatusCode)
-			assert.Equal(t, tt.want.body, string(resBody))
+			assert.True(t, strings.HasPrefix(respBody, tt.want.body))
 			assert.Equal(t, tt.want.contentType, res.Header.Get("Content-Type"))
+
+			if tt.correctURL {
+				parsedURL, err := url.Parse(respBody)
+				assert.NoError(t, err)
+				assert.Len(t, parsedURL.Path, 9)
+			}
 		})
 	}
 }
@@ -169,50 +170,59 @@ func TestService_SuccessPath(t *testing.T) {
 		contentType: "text/html; charset=utf-8",
 	}
 
-	s := Service{
-		db:        map[int64]string{100: "http://ya.ru/123"},
-		appDomain: "localhost:8080",
-	}
+	db := map[string]string{"100": "http://ya.ru/123"}
+	s := NewService("localhost:8080", WithMemoryRepository(db))
 
-	// в хелпер унести get/post
-	h := http.HandlerFunc(s.ServeHTTP)
-	wPost := httptest.NewRecorder()
+	ts := httptest.NewServer(s.Mux)
+	defer ts.Close()
 
-	// сохраняем урл. Должны получить айди /1
-	requestPost := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte(longURL)))
-	h.ServeHTTP(wPost, requestPost)
-	resPost := wPost.Result()
-	defer resPost.Body.Close()
+	// сохраняем длинный урл
+	resGet, shortLink := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL))) //nolint:bodyclose
+	defer resGet.Body.Close()
+	assert.NotEmpty(t, shortLink)
+	parsedURL, err := url.Parse(shortLink)
+	assert.NoError(t, err)
 
 	// достаем длинный урл
-	wGet := httptest.NewRecorder()
-	requestGet := httptest.NewRequest(http.MethodGet, "/1", nil)
-	h.ServeHTTP(wGet, requestGet)
-	resGet := wGet.Result()
-	defer resGet.Body.Close()
+	res, _ := testRequest(t, ts, "GET", parsedURL.Path, nil) //nolint:bodyclose
+	defer res.Body.Close()
 
-	assert.Equal(t, want.code, resGet.StatusCode)
-	assert.Equal(t, want.location, resGet.Header.Get("location"))
-	assert.Equal(t, want.contentType, resGet.Header.Get("Content-Type"))
+	assert.Equal(t, want.code, res.StatusCode)
+	assert.Equal(t, want.location, res.Header.Get("location"))
+	assert.Equal(t, want.contentType, res.Header.Get("Content-Type"))
 }
 
 func TestService_PostMultiple(t *testing.T) {
-	s := Service{
-		db:        map[int64]string{100: "http://ya.ru/123"},
-		appDomain: "localhost:8080",
-	}
+	db := map[string]string{"100": "http://ya.ru/123"}
+	s := NewService("localhost:8080", WithMemoryRepository(db))
+	ts := httptest.NewServer(s.Mux)
+	defer ts.Close()
 
 	for i := 0; i < 5; i++ {
 		longURL := fmt.Sprintf(`https://yandex.ru/search/?lr=2&text=abc%d`, i)
-
-		h := http.HandlerFunc(s.ServeHTTP)
-		wPost := httptest.NewRecorder()
-		// сохраняем урл. Должны получить айди /1
-		requestPost := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte(longURL)))
-		h.ServeHTTP(wPost, requestPost)
-		resPost := wPost.Result()
-		resPost.Body.Close()
+		res, _ := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL))) //nolint:bodyclose
+		res.Body.Close()
 	}
 
-	assert.Equal(t, 6, len(s.db)) // 1 + 5
+	assert.Equal(t, 6, s.repository.Count()) // 1 + 5
+}
+
+func testRequest(t *testing.T, ts *httptest.Server, method, path string, body io.Reader) (*http.Response, string) {
+	req, err := http.NewRequest(method, ts.URL+path, body)
+	require.NoError(t, err)
+
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+
+	respBody, err := ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	defer resp.Body.Close()
+
+	return resp, string(respBody)
 }
