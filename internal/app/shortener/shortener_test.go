@@ -2,6 +2,7 @@ package shortener
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -205,6 +206,99 @@ func TestService_PostMultiple(t *testing.T) {
 	}
 
 	assert.Equal(t, 6, s.repository.Count()) // 1 + 5
+}
+
+//nolint:funlen
+func TestService_Post_JSON(t *testing.T) {
+	type want struct {
+		code        int
+		contentType string
+		body        string
+	}
+
+	tests := []struct {
+		name        string
+		db          map[string]string
+		queryString string
+		body        []byte
+		contentType string
+		want        want
+		correctURL  bool
+	}{
+		{
+			name:        "correct url",
+			db:          map[string]string{"100": "http://ya.ru/123"},
+			queryString: "/api/shorten",
+			body:        []byte(`{"url": "https://ya.ru"}`),
+			want: want{
+				code:        http.StatusCreated,
+				contentType: "application/json; charset=utf-8",
+				body:        "http://localhost:8080/",
+			},
+			correctURL: true,
+		},
+		{
+			name:        "incorrect url",
+			db:          map[string]string{"100": "http://ya.ru/123"},
+			queryString: "/api/shorten",
+			body:        []byte(``),
+			want: want{
+				code:        http.StatusBadRequest,
+				contentType: "text/plain; charset=utf-8",
+				body:        "invalid url",
+			},
+			correctURL: false,
+		},
+		{
+			name:        "invalid json",
+			db:          map[string]string{"100": "http://ya.ru/123"},
+			queryString: "/api/shorten",
+			body:        []byte(`{"url":"http://ya.ru"`),
+			want: want{
+				code:        http.StatusBadRequest,
+				contentType: "text/plain; charset=utf-8",
+				body:        "invalid url",
+			},
+			correctURL: false,
+		},
+		{
+			name:        "missing field",
+			db:          map[string]string{"100": "http://ya.ru/123"},
+			queryString: "/api/shorten",
+			body:        []byte(`{"foo":"http://ya.ru"}`),
+			want: want{
+				code:        http.StatusBadRequest,
+				contentType: "text/plain; charset=utf-8",
+				body:        "invalid url",
+			},
+			correctURL: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := NewService("localhost:8080", WithMemoryRepository(tt.db))
+
+			ts := httptest.NewServer(s.Mux)
+			defer ts.Close()
+
+			res, respBody := testRequest(t, ts, "POST", tt.queryString, bytes.NewReader(tt.body)) //nolint:bodyclose
+			defer res.Body.Close()
+
+			assert.Equal(t, tt.want.code, res.StatusCode)
+			assert.Equal(t, tt.want.contentType, res.Header.Get("Content-Type"))
+
+			if tt.correctURL {
+				var actual ShortenResponse
+				err := json.Unmarshal([]byte(respBody), &actual)
+				assert.NoError(t, err)
+				assert.True(t, strings.HasPrefix(actual.Result, tt.want.body))
+
+				parsedURL, err := url.Parse(actual.Result)
+				assert.NoError(t, err)
+				assert.Len(t, parsedURL.Path, 9)
+			}
+		})
+	}
 }
 
 func testRequest(t *testing.T, ts *httptest.Server, method, path string, body io.Reader) (*http.Response, string) {
