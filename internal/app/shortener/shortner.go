@@ -1,6 +1,7 @@
 package shortener
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -42,6 +43,7 @@ func NewService(appDomain string, opts ...Option) *Service {
 
 	s.Get("/{linkID}", s.GetLongURL())
 	s.Post("/", s.SaveLongURL())
+	s.Post("/api/shorten", s.ShortenJSON())
 	return s
 }
 
@@ -81,6 +83,42 @@ func (s *Service) SaveLongURL() http.HandlerFunc {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusCreated)
 		_, _ = fmt.Fprintf(w, "http://%s/%s", s.appDomain, linkID)
+	}
+}
+
+func (s *Service) ShortenJSON() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		decoder := json.NewDecoder(r.Body)
+		var request ShortenRequest
+		err := decoder.Decode(&request)
+		if err != nil {
+			http.Error(w, "invalid request params", http.StatusBadRequest)
+			return
+		}
+
+		longURL := request.URL
+		if !isValidURL(longURL) {
+			http.Error(w, "invalid url", http.StatusBadRequest)
+			return
+		}
+		linkID, err := s.repository.Put(longURL)
+		if err != nil {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		resp := ShortenResponse{
+			Result: fmt.Sprintf("http://%s/%s", s.appDomain, linkID),
+		}
+
+		data, err := json.Marshal(resp)
+		if err != nil {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = fmt.Fprint(w, string(data))
 	}
 }
 
