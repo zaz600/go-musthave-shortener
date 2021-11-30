@@ -10,7 +10,7 @@ import (
 
 const (
 	defaultBaseURL       = "http://localhost:8080"
-	defaultServerAddress = "127.0.0.1:8080"
+	defaultServerAddress = "localhost:8080"
 )
 
 func main() {
