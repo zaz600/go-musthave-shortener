@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const baseURL = "http://localhost:8080"
+
 func TestService_isValidURL(t *testing.T) {
 	tests := []struct {
 		name string
@@ -82,7 +84,7 @@ func TestService_Get(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewService("localhost:8080", WithMemoryRepository(tt.db))
+			s := NewService(baseURL, WithMemoryRepository(tt.db))
 			ts := httptest.NewServer(s.Mux)
 			defer ts.Close()
 
@@ -137,7 +139,7 @@ func TestService_Post(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewService("localhost:8080", WithMemoryRepository(tt.db))
+			s := NewService(baseURL, WithMemoryRepository(tt.db))
 
 			ts := httptest.NewServer(s.Mux)
 			defer ts.Close()
@@ -172,7 +174,7 @@ func TestService_SuccessPath(t *testing.T) {
 	}
 
 	db := map[string]string{"100": "http://ya.ru/123"}
-	s := NewService("localhost:8080", WithMemoryRepository(db))
+	s := NewService(baseURL, WithMemoryRepository(db))
 
 	ts := httptest.NewServer(s.Mux)
 	defer ts.Close()
@@ -195,7 +197,7 @@ func TestService_SuccessPath(t *testing.T) {
 
 func TestService_PostMultiple(t *testing.T) {
 	db := map[string]string{"100": "http://ya.ru/123"}
-	s := NewService("localhost:8080", WithMemoryRepository(db))
+	s := NewService(baseURL, WithMemoryRepository(db))
 	ts := httptest.NewServer(s.Mux)
 	defer ts.Close()
 
@@ -276,7 +278,7 @@ func TestService_Post_JSON(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewService("localhost:8080", WithMemoryRepository(tt.db))
+			s := NewService(baseURL, WithMemoryRepository(tt.db))
 
 			ts := httptest.NewServer(s.Mux)
 			defer ts.Close()
