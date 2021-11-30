@@ -82,7 +82,7 @@ func (s *Service) SaveLongURL() http.HandlerFunc {
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusCreated)
-		_, _ = fmt.Fprintf(w, "%s/%s", s.baseURL, linkID)
+		_, _ = fmt.Fprintf(w, "http://%s/%s", s.baseURL, linkID)
 	}
 }
 
@@ -107,7 +107,7 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 			return
 		}
 		resp := ShortenResponse{
-			Result: fmt.Sprintf("%s/%s", s.baseURL, linkID),
+			Result: fmt.Sprintf("http://%s/%s", s.baseURL, linkID),
 		}
 
 		data, err := json.Marshal(resp)
