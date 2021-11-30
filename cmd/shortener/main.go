@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	defaultBaseURL       = "localhost:8080"
+	defaultBaseURL       = "http://localhost:8080"
 	defaultServerAddress = "localhost:8080"
 )
 
