@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -28,7 +29,9 @@ func NewService(baseURL string, opts ...Option) *Service {
 	}
 
 	for _, opt := range opts {
-		opt(s)
+		if err := opt(s); err != nil {
+			log.Panicln(err)
+		}
 	}
 
 	if s.repository == nil {
