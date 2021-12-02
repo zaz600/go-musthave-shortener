@@ -88,7 +88,6 @@ func (f *FileLinksRepository) dump(linkID string, link string) error {
 
 // loadCache загружает кеш из файла
 func (f *FileLinksRepository) loadCache() error {
-	cache := make(map[string]string)
 	decoder := json.NewDecoder(f.file)
 	for {
 		entity := ShortenEntity{}
@@ -98,9 +97,8 @@ func (f *FileLinksRepository) loadCache() error {
 			}
 			return err
 		}
-		cache[entity.ID] = entity.LongURL
+		f.cache[entity.ID] = entity.LongURL
 	}
-	f.cache = cache
 	log.Printf("load %d records from storage", f.Count())
 	return nil
 }
