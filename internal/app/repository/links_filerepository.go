@@ -1,8 +1,7 @@
 package repository
 
 import (
-	"bufio"
-	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -16,10 +15,14 @@ import (
 type FileLinksRepository struct {
 	fileStoragePath string
 	file            *os.File
-	w               *bufio.Writer
+	encoder         *json.Encoder
+	mu              *sync.RWMutex
+	cache           map[string]string
+}
 
-	mu    *sync.RWMutex
-	cache map[string]string
+type ShortenEntity struct {
+	ID      string `json:"id"`
+	LongURL string `json:"long_url"`
 }
 
 func NewFileLinksRepository(path string) (*FileLinksRepository, error) {
@@ -31,9 +34,10 @@ func NewFileLinksRepository(path string) (*FileLinksRepository, error) {
 	repo := &FileLinksRepository{
 		fileStoragePath: path,
 		file:            file,
-		w:               bufio.NewWriter(file),
-		mu:              &sync.RWMutex{},
-		cache:           make(map[string]string),
+		encoder:         json.NewEncoder(file),
+
+		mu:    &sync.RWMutex{},
+		cache: make(map[string]string),
 	}
 
 	if err = repo.loadCache(); err != nil {
@@ -58,7 +62,7 @@ func (f *FileLinksRepository) Put(link string) (string, error) {
 
 	linkID := random.String(8)
 	f.cache[linkID] = link
-	if err := f.dumpCache(); err != nil {
+	if err := f.dump(linkID, link); err != nil {
 		return "", err
 	}
 	return linkID, nil
@@ -68,24 +72,33 @@ func (f *FileLinksRepository) Count() int {
 	return len(f.cache)
 }
 
-func (f *FileLinksRepository) dumpCache() error {
+// dump сохраняет длинную ссылку и ее идентификатор в файл
+func (f *FileLinksRepository) dump(linkID string, link string) error {
 	defer f.file.Sync()
-	f.file.Truncate(0)
-	f.file.Seek(0, 0)
 
-	if err := gob.NewEncoder(f.file).Encode(f.cache); err != nil {
+	entity := ShortenEntity{
+		ID:      linkID,
+		LongURL: link,
+	}
+	if err := f.encoder.Encode(entity); err != nil {
 		return err
 	}
 	return nil
 }
 
+// loadCache загружает кеш из файла
 func (f *FileLinksRepository) loadCache() error {
-	var cache map[string]string
-	err := gob.NewDecoder(f.file).Decode(&cache)
-	if errors.Is(err, io.EOF) {
-		return nil
-	} else if err != nil {
-		return err
+	cache := make(map[string]string)
+	decoder := json.NewDecoder(f.file)
+	for {
+		entity := ShortenEntity{}
+		if err := decoder.Decode(&entity); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return err
+		}
+		cache[entity.ID] = entity.LongURL
 	}
 	f.cache = cache
 	log.Printf("load %d records from storage", f.Count())
