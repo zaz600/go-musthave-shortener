@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/zaz600/go-musthave-shortener/internal/app/shortener"
-	"github.com/zaz600/go-musthave-shortener/internal/helpers"
+	"github.com/zaz600/go-musthave-shortener/internal/config"
 )
 
 func main() {
@@ -23,7 +23,7 @@ func CLI(args []string) int {
 }
 
 func runApp(args []string) error {
-	cfg := helpers.GetShortenConfig(args)
+	cfg := config.GetConfig(args)
 	log.Printf("app cfg: %+v\n", cfg)
 
 	var repoOpt shortener.Option
