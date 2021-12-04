@@ -10,11 +10,6 @@ import (
 	"github.com/zaz600/go-musthave-shortener/internal/helpers"
 )
 
-const (
-	defaultBaseURL       = "http://localhost:8080"
-	defaultServerAddress = "localhost:8080"
-)
-
 func main() {
 	os.Exit(CLI(os.Args))
 }
@@ -28,19 +23,18 @@ func CLI(args []string) int {
 }
 
 func runApp(args []string) error {
-	baseURL := helpers.GetEnvOrDefault("BASE_URL", defaultBaseURL)
-	serverAddress := helpers.GetEnvOrDefault("SERVER_ADDRESS", defaultServerAddress)
-	fileStoragePath := helpers.GetEnvOrDefault("FILE_STORAGE_PATH", "")
+	cfg := helpers.GetShortenConfig(args)
+	log.Printf("app cfg: %+v\n", cfg)
 
 	var repoOpt shortener.Option
-	if fileStoragePath != "" {
-		log.Printf("FileRepository %s\n", fileStoragePath)
-		repoOpt = shortener.WithFileRepository(fileStoragePath)
+	if cfg.FileStoragePath != "" {
+		log.Printf("FileRepository %s\n", cfg.FileStoragePath)
+		repoOpt = shortener.WithFileRepository(cfg.FileStoragePath)
 	} else {
 		log.Println("MemoryRepository")
 		repoOpt = shortener.WithMemoryRepository(nil)
 	}
 
-	s := shortener.NewService(baseURL, repoOpt)
-	return http.ListenAndServe(serverAddress, s)
+	s := shortener.NewService(cfg.BaseURL, repoOpt)
+	return http.ListenAndServe(cfg.ServerAddress, s)
 }
