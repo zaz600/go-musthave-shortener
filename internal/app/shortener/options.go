@@ -6,20 +6,9 @@ import (
 
 type Option func(*Service) error
 
-func WithMemoryRepository(db map[string]string) Option {
+func WithRepository(linksRepository repository.LinksRepository) Option {
 	return func(s *Service) error {
-		s.repository = repository.New(db)
-		return nil
-	}
-}
-
-func WithFileRepository(storagePath string) Option {
-	return func(s *Service) error {
-		r, err := repository.NewFileLinksRepository(storagePath)
-		if err != nil {
-			return err
-		}
-		s.repository = r
+		s.repository = linksRepository
 		return nil
 	}
 }

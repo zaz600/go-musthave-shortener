@@ -12,7 +12,7 @@ type InMemoryLinksRepository struct {
 	db map[string]string
 }
 
-func New(db map[string]string) *InMemoryLinksRepository {
+func NewInMemoryLinksRepository(db map[string]string) *InMemoryLinksRepository {
 	if db == nil {
 		db = make(map[string]string)
 	}
