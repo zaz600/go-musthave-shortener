@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"sync"
 
+	"github.com/rs/zerolog/log"
 	"github.com/zaz600/go-musthave-shortener/internal/random"
 )
 
@@ -99,6 +99,6 @@ func (f *FileLinksRepository) loadCache() error {
 		}
 		f.cache[entity.ID] = entity.LongURL
 	}
-	log.Printf("load %d records from storage", f.Count())
+	log.Info().Msgf("load %d records from storage", f.Count())
 	return nil
 }

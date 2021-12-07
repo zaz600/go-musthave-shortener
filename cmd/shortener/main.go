@@ -2,16 +2,18 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/zaz600/go-musthave-shortener/internal/app/repository"
 	"github.com/zaz600/go-musthave-shortener/internal/app/shortener"
 	"github.com/zaz600/go-musthave-shortener/internal/config"
 )
 
 func main() {
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixMicro
 	os.Exit(CLI(os.Args))
 }
 
@@ -25,17 +27,17 @@ func CLI(args []string) int {
 
 func runApp(args []string) (err error) {
 	cfg := config.GetConfig(args)
-	log.Printf("app cfg: %+v\n", cfg)
+	log.Info().Msgf("app cfg: %+v", cfg)
 
 	var repo repository.LinksRepository
 	if cfg.GetRepositoryType() == repository.FileRepo {
-		log.Printf("FileRepository %s\n", cfg.FileStoragePath)
+		log.Info().Msgf("FileRepository %s", cfg.FileStoragePath)
 		repo, err = repository.NewFileLinksRepository(cfg.FileStoragePath)
 		if err != nil {
 			return err
 		}
 	} else {
-		log.Println("MemoryRepository")
+		log.Info().Msg("MemoryRepository")
 		repo = repository.NewInMemoryLinksRepository(nil)
 	}
 
