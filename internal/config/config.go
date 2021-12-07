@@ -2,6 +2,8 @@ package config
 
 import (
 	"flag"
+
+	"github.com/zaz600/go-musthave-shortener/internal/app/repository"
 )
 
 const (
@@ -13,6 +15,15 @@ type ShortenConfig struct {
 	BaseURL         string
 	ServerAddress   string
 	FileStoragePath string
+}
+
+func (s ShortenConfig) GetRepositoryType() repository.RepoType {
+	// пока так для совместимости с тестами
+	// потом добавится отдельный ключ для типа
+	if s.FileStoragePath != "" {
+		return repository.FileRepo
+	}
+	return repository.MemoryRepo
 }
 
 // GetConfig возвращает конфигурацию приложения, вычитывая в таком порядке

@@ -28,7 +28,7 @@ func runApp(args []string) (err error) {
 	log.Printf("app cfg: %+v\n", cfg)
 
 	var repo repository.LinksRepository
-	if cfg.FileStoragePath != "" {
+	if cfg.GetRepositoryType() == repository.FileRepo {
 		log.Printf("FileRepository %s\n", cfg.FileStoragePath)
 		repo, err = repository.NewFileLinksRepository(cfg.FileStoragePath)
 		if err != nil {
