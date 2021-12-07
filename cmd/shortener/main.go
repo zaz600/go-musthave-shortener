@@ -2,20 +2,18 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/zaz600/go-musthave-shortener/internal/app/repository"
 	"github.com/zaz600/go-musthave-shortener/internal/app/shortener"
-	"github.com/zaz600/go-musthave-shortener/internal/helpers"
-)
-
-const (
-	defaultBaseURL       = "http://localhost:8080"
-	defaultServerAddress = "localhost:8080"
+	"github.com/zaz600/go-musthave-shortener/internal/config"
 )
 
 func main() {
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixMicro
 	os.Exit(CLI(os.Args))
 }
 
@@ -27,20 +25,22 @@ func CLI(args []string) int {
 	return 0
 }
 
-func runApp(args []string) error {
-	baseURL := helpers.GetEnvOrDefault("BASE_URL", defaultBaseURL)
-	serverAddress := helpers.GetEnvOrDefault("SERVER_ADDRESS", defaultServerAddress)
-	fileStoragePath := helpers.GetEnvOrDefault("FILE_STORAGE_PATH", "")
+func runApp(args []string) (err error) {
+	cfg := config.GetConfig(args)
+	log.Info().Msgf("app cfg: %+v", cfg)
 
-	var repoOpt shortener.Option
-	if fileStoragePath != "" {
-		log.Printf("FileRepository %s\n", fileStoragePath)
-		repoOpt = shortener.WithFileRepository(fileStoragePath)
+	var repo repository.LinksRepository
+	if cfg.GetRepositoryType() == repository.FileRepo {
+		log.Info().Msgf("FileRepository %s", cfg.FileStoragePath)
+		repo, err = repository.NewFileLinksRepository(cfg.FileStoragePath)
+		if err != nil {
+			return err
+		}
 	} else {
-		log.Println("MemoryRepository")
-		repoOpt = shortener.WithMemoryRepository(nil)
+		log.Info().Msg("MemoryRepository")
+		repo = repository.NewInMemoryLinksRepository(nil)
 	}
 
-	s := shortener.NewService(baseURL, repoOpt)
-	return http.ListenAndServe(serverAddress, s)
+	s := shortener.NewService(cfg.BaseURL, shortener.WithRepository(repo))
+	return http.ListenAndServe(cfg.ServerAddress, s)
 }

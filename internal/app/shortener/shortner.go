@@ -35,7 +35,7 @@ func NewService(baseURL string, opts ...Option) *Service {
 	}
 
 	if s.repository == nil {
-		s.repository = repository.New(nil)
+		s.repository = repository.NewInMemoryLinksRepository(nil)
 	}
 
 	s.Use(middleware.RequestID)

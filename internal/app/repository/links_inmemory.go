@@ -12,18 +12,18 @@ type InMemoryLinksRepository struct {
 	db map[string]string
 }
 
-func New(db map[string]string) *InMemoryLinksRepository {
+func NewInMemoryLinksRepository(db map[string]string) InMemoryLinksRepository {
 	if db == nil {
 		db = make(map[string]string)
 	}
-	return &InMemoryLinksRepository{
+	return InMemoryLinksRepository{
 		mu: &sync.RWMutex{},
 		db: db,
 	}
 }
 
 // Get извлекает из хранилища длинный url по идентификатору
-func (m *InMemoryLinksRepository) Get(linkID string) (string, error) {
+func (m InMemoryLinksRepository) Get(linkID string) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -35,7 +35,7 @@ func (m *InMemoryLinksRepository) Get(linkID string) (string, error) {
 
 // Put сохраняет длинный url в хранилище и возвращает идентификатор,
 // с которым длинный url можно получить обратно
-func (m *InMemoryLinksRepository) Put(link string) (string, error) {
+func (m InMemoryLinksRepository) Put(link string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -44,6 +44,6 @@ func (m *InMemoryLinksRepository) Put(link string) (string, error) {
 	return linkID, nil
 }
 
-func (m *InMemoryLinksRepository) Count() int {
+func (m InMemoryLinksRepository) Count() int {
 	return len(m.db)
 }

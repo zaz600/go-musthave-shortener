@@ -1,8 +1,8 @@
-package helpers
+package config
 
 import "os"
 
-func GetEnvOrDefault(key string, defaultValue string) string {
+func getEnvOrDefault(key string, defaultValue string) string {
 	value, ok := os.LookupEnv(key)
 	if ok {
 		return value
