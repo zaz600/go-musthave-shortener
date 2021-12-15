@@ -1,6 +1,7 @@
 package shortener
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,6 +15,15 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/zaz600/go-musthave-shortener/internal/app/repository"
 )
+
+type gzReadCloser struct {
+	*gzip.Reader
+	io.Closer
+}
+
+func (gz gzReadCloser) Close() error {
+	return gz.Closer.Close()
+}
 
 type Service struct {
 	*chi.Mux
@@ -69,6 +79,16 @@ func (s *Service) SaveLongURL() http.HandlerFunc {
 			return
 		}
 
+		if r.Header.Get("Content-Encoding") == "x-gzip" {
+			r.Header.Del("Content-Length")
+			zr, err := gzip.NewReader(r.Body)
+			if err != nil {
+				http.Error(w, "invalid request params", http.StatusBadRequest)
+				return
+			}
+			r.Body = gzReadCloser{zr, r.Body}
+		}
+
 		bytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "invalid request params", http.StatusBadRequest)
@@ -92,6 +112,16 @@ func (s *Service) SaveLongURL() http.HandlerFunc {
 
 func (s *Service) ShortenJSON() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Content-Encoding") == "x-gzip" {
+			r.Header.Del("Content-Length")
+			zr, err := gzip.NewReader(r.Body)
+			if err != nil {
+				http.Error(w, "invalid request params", http.StatusBadRequest)
+				return
+			}
+			r.Body = gzReadCloser{zr, r.Body}
+		}
+
 		decoder := json.NewDecoder(r.Body)
 		var request ShortenRequest
 		err := decoder.Decode(&request)
