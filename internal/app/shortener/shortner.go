@@ -43,6 +43,7 @@ func NewService(baseURL string, opts ...Option) *Service {
 	s.Use(middleware.Logger)
 	s.Use(middleware.Recoverer)
 	s.Use(middleware.Timeout(10 * time.Second))
+	s.Use(middleware.Compress(5))
 
 	s.Get("/{linkID}", s.GetLongURL())
 	s.Post("/", s.SaveLongURL())
