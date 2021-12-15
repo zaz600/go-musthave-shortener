@@ -120,7 +120,7 @@ func TestService_Post(t *testing.T) {
 			body:        []byte(`https://yandex.ru/search/?lr=2&text=abc`),
 			want: want{
 				code:        http.StatusCreated,
-				contentType: "text/html; charset=utf-8",
+				contentType: "text/html",
 				body:        "http://localhost:8080/",
 			},
 			correctURL: true,
@@ -235,7 +235,7 @@ func TestService_Post_JSON(t *testing.T) {
 			body:        []byte(`{"url": "https://ya.ru"}`),
 			want: want{
 				code:        http.StatusCreated,
-				contentType: "application/json; charset=utf-8",
+				contentType: "application/json",
 				body:        "http://localhost:8080/",
 			},
 			correctURL: true,
