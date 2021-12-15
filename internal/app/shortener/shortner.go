@@ -84,7 +84,7 @@ func (s *Service) SaveLongURL() http.HandlerFunc {
 			http.Error(w, "invalid request params", http.StatusBadRequest)
 			return
 		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusCreated)
 		_, _ = fmt.Fprintf(w, "%s/%s", s.baseURL, linkID)
 	}
@@ -120,7 +120,7 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		_, _ = fmt.Fprint(w, string(data))
 	}
