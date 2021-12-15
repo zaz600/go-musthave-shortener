@@ -76,7 +76,7 @@ func (s *Service) SaveLongURL() http.HandlerFunc {
 		}
 		longURL := string(bytes)
 		if !isValidURL(longURL) {
-			http.Error(w, "invalid url", http.StatusBadRequest)
+			http.Error(w, "invalid url "+longURL, http.StatusBadRequest)
 			return
 		}
 		linkID, err := s.repository.Put(longURL)
