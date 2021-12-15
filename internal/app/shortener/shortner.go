@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/zaz600/go-musthave-shortener/internal/app/repository"
+	"github.com/zaz600/go-musthave-shortener/internal/compress"
 )
 
 type Service struct {
@@ -43,6 +44,8 @@ func NewService(baseURL string, opts ...Option) *Service {
 	s.Use(middleware.Logger)
 	s.Use(middleware.Recoverer)
 	s.Use(middleware.Timeout(10 * time.Second))
+	s.Use(middleware.Compress(5))
+	s.Use(compress.GzDecompressor)
 
 	s.Get("/{linkID}", s.GetLongURL())
 	s.Post("/", s.SaveLongURL())
@@ -75,7 +78,7 @@ func (s *Service) SaveLongURL() http.HandlerFunc {
 		}
 		longURL := string(bytes)
 		if !isValidURL(longURL) {
-			http.Error(w, "invalid url", http.StatusBadRequest)
+			http.Error(w, "invalid url "+longURL, http.StatusBadRequest)
 			return
 		}
 		linkID, err := s.repository.Put(longURL)
@@ -83,7 +86,7 @@ func (s *Service) SaveLongURL() http.HandlerFunc {
 			http.Error(w, "invalid request params", http.StatusBadRequest)
 			return
 		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusCreated)
 		_, _ = fmt.Fprintf(w, "%s/%s", s.baseURL, linkID)
 	}
@@ -119,7 +122,7 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		_, _ = fmt.Fprint(w, string(data))
 	}
