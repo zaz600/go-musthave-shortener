@@ -79,7 +79,8 @@ func (s *Service) SaveLongURL() http.HandlerFunc {
 			return
 		}
 
-		if r.Header.Get("Content-Encoding") == "x-gzip" {
+		log.Println(r.Header.Get("Content-Encoding"))
+		if r.Header.Get("Content-Type") == "application/x-gzip" {
 			r.Header.Del("Content-Length")
 			zr, err := gzip.NewReader(r.Body)
 			if err != nil {
@@ -112,7 +113,7 @@ func (s *Service) SaveLongURL() http.HandlerFunc {
 
 func (s *Service) ShortenJSON() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Content-Encoding") == "x-gzip" {
+		if r.Header.Get("Content-Encoding") == "application/x-gzip" {
 			r.Header.Del("Content-Length")
 			zr, err := gzip.NewReader(r.Body)
 			if err != nil {
