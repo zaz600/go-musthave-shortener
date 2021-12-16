@@ -55,7 +55,7 @@ func NewService(baseURL string, opts ...Option) *Service {
 	return s
 }
 
-func (s *Service) shortUL(linkID string) string {
+func (s *Service) shortURL(linkID string) string {
 	return fmt.Sprintf("%s/%s", s.baseURL, linkID)
 }
 
@@ -97,7 +97,7 @@ func (s *Service) SaveLongURL() http.HandlerFunc {
 		hellper.SetUIDCookie(w, uid)
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusCreated)
-		_, _ = fmt.Fprint(w, s.shortUL(linkID))
+		_, _ = fmt.Fprint(w, s.shortURL(linkID))
 	}
 }
 
@@ -156,7 +156,7 @@ func (s *Service) GetUserLinks() http.HandlerFunc {
 
 		for _, entity := range links {
 			result = append(result, UserLinksResponseEntry{
-				ShortURL:    s.shortUL(entity.ID),
+				ShortURL:    s.shortURL(entity.ID),
 				OriginalURL: entity.LongURL,
 			})
 		}
