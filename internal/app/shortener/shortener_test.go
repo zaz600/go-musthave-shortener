@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
 	"strings"
@@ -58,13 +59,18 @@ func TestService_Get(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		db          map[string]string
+		db          map[string]repository.LinkEntity
 		queryString string
 		want        want
 	}{
 		{
-			name:        "id exists",
-			db:          map[string]string{"1": "http://ya.ru/123"},
+			name: "id exists",
+			db: map[string]repository.LinkEntity{
+				"1": {
+					ID:      "1",
+					LongURL: "http://ya.ru/123",
+				},
+			},
 			queryString: "/1",
 			want: want{
 				code:        http.StatusTemporaryRedirect,
@@ -73,8 +79,13 @@ func TestService_Get(t *testing.T) {
 			},
 		},
 		{
-			name:        "id does not exists",
-			db:          map[string]string{"1": "http://ya.ru/123"},
+			name: "id does not exists",
+			db: map[string]repository.LinkEntity{
+				"1": {
+					ID:      "1",
+					LongURL: "http://ya.ru/123",
+				},
+			},
 			queryString: "/2",
 			want: want{
 				code:        http.StatusBadRequest,
@@ -89,7 +100,7 @@ func TestService_Get(t *testing.T) {
 			ts := httptest.NewServer(s.Mux)
 			defer ts.Close()
 
-			res, _ := testRequest(t, ts, "GET", tt.queryString, nil) //nolint:bodyclose
+			res, _ := testRequest(t, ts, "GET", tt.queryString, nil, nil) //nolint:bodyclose
 			defer res.Body.Close()
 			assert.Equal(t, tt.want.code, res.StatusCode)
 			assert.Equal(t, tt.want.location, res.Header.Get("location"))
@@ -107,15 +118,20 @@ func TestService_Post(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		db          map[string]string
+		db          map[string]repository.LinkEntity
 		queryString string
 		body        []byte
 		want        want
 		correctURL  bool
 	}{
 		{
-			name:        "correct url",
-			db:          map[string]string{"100": "http://ya.ru/123"},
+			name: "correct url",
+			db: map[string]repository.LinkEntity{
+				"100": {
+					ID:      "100",
+					LongURL: "http://ya.ru/123",
+				},
+			},
 			queryString: "/",
 			body:        []byte(`https://yandex.ru/search/?lr=2&text=abc`),
 			want: want{
@@ -126,8 +142,13 @@ func TestService_Post(t *testing.T) {
 			correctURL: true,
 		},
 		{
-			name:        "incorrect url",
-			db:          map[string]string{"100": "http://ya.ru/123"},
+			name: "incorrect url",
+			db: map[string]repository.LinkEntity{
+				"100": {
+					ID:      "100",
+					LongURL: "http://ya.ru/123",
+				},
+			},
 			queryString: "/",
 			body:        []byte(``),
 			want: want{
@@ -145,7 +166,7 @@ func TestService_Post(t *testing.T) {
 			ts := httptest.NewServer(s.Mux)
 			defer ts.Close()
 
-			res, respBody := testRequest(t, ts, "POST", tt.queryString, bytes.NewReader(tt.body)) //nolint:bodyclose
+			res, respBody := testRequest(t, ts, "POST", tt.queryString, bytes.NewReader(tt.body), nil) //nolint:bodyclose
 			defer res.Body.Close()
 
 			assert.Equal(t, tt.want.code, res.StatusCode)
@@ -174,21 +195,26 @@ func TestService_SuccessPath(t *testing.T) {
 		contentType: "text/html; charset=utf-8",
 	}
 
-	db := map[string]string{"100": "http://ya.ru/123"}
+	db := map[string]repository.LinkEntity{
+		"100": {
+			ID:      "100",
+			LongURL: "http://ya.ru/123",
+		},
+	}
 	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(db)))
 
 	ts := httptest.NewServer(s.Mux)
 	defer ts.Close()
 
 	// сохраняем длинный урл
-	resGet, shortLink := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL))) //nolint:bodyclose
+	resGet, shortLink := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
 	defer resGet.Body.Close()
 	assert.NotEmpty(t, shortLink)
 	parsedURL, err := url.Parse(shortLink)
 	assert.NoError(t, err)
 
 	// достаем длинный урл
-	res, _ := testRequest(t, ts, "GET", parsedURL.Path, nil) //nolint:bodyclose
+	res, _ := testRequest(t, ts, "GET", parsedURL.Path, nil, nil) //nolint:bodyclose
 	defer res.Body.Close()
 
 	assert.Equal(t, want.code, res.StatusCode)
@@ -197,18 +223,61 @@ func TestService_SuccessPath(t *testing.T) {
 }
 
 func TestService_PostMultiple(t *testing.T) {
-	db := map[string]string{"100": "http://ya.ru/123"}
+	db := map[string]repository.LinkEntity{
+		"100": {
+			ID:      "100",
+			LongURL: "http://ya.ru/123",
+		},
+	}
 	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(db)))
 	ts := httptest.NewServer(s.Mux)
 	defer ts.Close()
 
 	for i := 0; i < 5; i++ {
 		longURL := fmt.Sprintf(`https://yandex.ru/search/?lr=2&text=abc%d`, i)
-		res, _ := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL))) //nolint:bodyclose
+		res, _ := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
 		res.Body.Close()
 	}
 
 	assert.Equal(t, 6, s.repository.Count()) // 1 + 5
+}
+
+func TestService_GetUserLinks(t *testing.T) {
+	longURL := `https://yandex.ru/search/?lr=2&text=abc`
+	db := map[string]repository.LinkEntity{
+		"100": {
+			ID:      "100",
+			LongURL: "http://ya.ru/123",
+			UID:     "100500",
+		},
+	}
+	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(db)))
+	ts := httptest.NewServer(s.Mux)
+	defer ts.Close()
+
+	// сохраняем длинный урл
+	resGet, shortLink := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
+	defer resGet.Body.Close()
+	assert.NotEmpty(t, shortLink)
+
+	var uidCookie *http.Cookie
+	for _, cookie := range resGet.Cookies() {
+		if cookie.Name == "SHORTENER_UID" {
+			uidCookie = cookie
+			break
+		}
+	}
+	require.NotNil(t, uidCookie)
+
+	res, respBody := testRequest(t, ts, "GET", "/user/urls", nil, uidCookie)
+	res.Body.Close()
+
+	var actual []UserLinksResponseEntry
+	err := json.Unmarshal([]byte(respBody), &actual)
+	assert.NoError(t, err)
+
+	assert.Len(t, actual, 1)
+	assert.Equal(t, longURL, actual[0].OriginalURL)
 }
 
 //nolint:funlen
@@ -221,7 +290,7 @@ func TestService_Post_JSON(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		db          map[string]string
+		db          map[string]repository.LinkEntity
 		queryString string
 		body        []byte
 		contentType string
@@ -229,8 +298,13 @@ func TestService_Post_JSON(t *testing.T) {
 		correctURL  bool
 	}{
 		{
-			name:        "correct url",
-			db:          map[string]string{"100": "http://ya.ru/123"},
+			name: "correct url",
+			db: map[string]repository.LinkEntity{
+				"100": {
+					ID:      "100",
+					LongURL: "http://ya.ru/123",
+				},
+			},
 			queryString: "/api/shorten",
 			body:        []byte(`{"url": "https://ya.ru"}`),
 			want: want{
@@ -241,8 +315,13 @@ func TestService_Post_JSON(t *testing.T) {
 			correctURL: true,
 		},
 		{
-			name:        "incorrect url",
-			db:          map[string]string{"100": "http://ya.ru/123"},
+			name: "incorrect url",
+			db: map[string]repository.LinkEntity{
+				"100": {
+					ID:      "100",
+					LongURL: "http://ya.ru/123",
+				},
+			},
 			queryString: "/api/shorten",
 			body:        []byte(``),
 			want: want{
@@ -253,8 +332,13 @@ func TestService_Post_JSON(t *testing.T) {
 			correctURL: false,
 		},
 		{
-			name:        "invalid json",
-			db:          map[string]string{"100": "http://ya.ru/123"},
+			name: "invalid json",
+			db: map[string]repository.LinkEntity{
+				"100": {
+					ID:      "100",
+					LongURL: "http://ya.ru/123",
+				},
+			},
 			queryString: "/api/shorten",
 			body:        []byte(`{"url":"http://ya.ru"`),
 			want: want{
@@ -265,8 +349,13 @@ func TestService_Post_JSON(t *testing.T) {
 			correctURL: false,
 		},
 		{
-			name:        "missing field",
-			db:          map[string]string{"100": "http://ya.ru/123"},
+			name: "missing field",
+			db: map[string]repository.LinkEntity{
+				"100": {
+					ID:      "100",
+					LongURL: "http://ya.ru/123",
+				},
+			},
 			queryString: "/api/shorten",
 			body:        []byte(`{"foo":"http://ya.ru"}`),
 			want: want{
@@ -284,7 +373,7 @@ func TestService_Post_JSON(t *testing.T) {
 			ts := httptest.NewServer(s.Mux)
 			defer ts.Close()
 
-			res, respBody := testRequest(t, ts, "POST", tt.queryString, bytes.NewReader(tt.body)) //nolint:bodyclose
+			res, respBody := testRequest(t, ts, "POST", tt.queryString, bytes.NewReader(tt.body), nil) //nolint:bodyclose
 			defer res.Body.Close()
 
 			assert.Equal(t, tt.want.code, res.StatusCode)
@@ -304,15 +393,25 @@ func TestService_Post_JSON(t *testing.T) {
 	}
 }
 
-func testRequest(t *testing.T, ts *httptest.Server, method, path string, body io.Reader) (*http.Response, string) {
+func testRequest(t *testing.T, ts *httptest.Server, method, path string, body io.Reader, cookie *http.Cookie) (*http.Response, string) {
 	req, err := http.NewRequest(method, ts.URL+path, body)
+	require.NoError(t, err)
+
+	jar, err := cookiejar.New(nil)
 	require.NoError(t, err)
 
 	client := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
+		Jar: jar,
 	}
+
+	if cookie != nil {
+		urlObj, _ := url.Parse(ts.URL)
+		client.Jar.SetCookies(urlObj, []*http.Cookie{cookie})
+	}
+
 	resp, err := client.Do(req)
 	require.NoError(t, err)
 

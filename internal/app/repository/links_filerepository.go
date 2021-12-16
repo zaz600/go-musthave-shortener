@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/rs/zerolog/log"
-	"github.com/zaz600/go-musthave-shortener/internal/random"
 )
 
 type FileLinksRepository struct {
@@ -17,12 +16,7 @@ type FileLinksRepository struct {
 	file            *os.File
 	encoder         *json.Encoder
 	mu              *sync.RWMutex
-	cache           map[string]string
-}
-
-type ShortenEntity struct {
-	ID      string `json:"id"`
-	LongURL string `json:"long_url"`
+	cache           map[string]LinkEntity
 }
 
 func NewFileLinksRepository(path string) (*FileLinksRepository, error) {
@@ -37,7 +31,7 @@ func NewFileLinksRepository(path string) (*FileLinksRepository, error) {
 		encoder:         json.NewEncoder(file),
 
 		mu:    &sync.RWMutex{},
-		cache: make(map[string]string),
+		cache: make(map[string]LinkEntity),
 	}
 
 	if err = repo.loadCache(); err != nil {
@@ -46,41 +40,46 @@ func NewFileLinksRepository(path string) (*FileLinksRepository, error) {
 	return repo, nil
 }
 
-func (f *FileLinksRepository) Get(linkID string) (string, error) {
+func (f *FileLinksRepository) Get(linkID string) (LinkEntity, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
-	if longURL, ok := f.cache[linkID]; ok {
-		return longURL, nil
+	if entity, ok := f.cache[linkID]; ok {
+		return entity, nil
 	}
-	return "", fmt.Errorf("link with id '%s' not found", linkID)
+	return LinkEntity{}, fmt.Errorf("link with id '%s' not found", linkID)
 }
 
-func (f *FileLinksRepository) Put(link string) (string, error) {
+func (f *FileLinksRepository) Put(linkEntity LinkEntity) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	linkID := random.String(8)
-	f.cache[linkID] = link
-	if err := f.dump(linkID, link); err != nil {
+	f.cache[linkEntity.ID] = linkEntity
+	if err := f.dump(linkEntity); err != nil {
 		return "", err
 	}
-	return linkID, nil
+	return linkEntity.ID, nil
 }
 
 func (f *FileLinksRepository) Count() int {
 	return len(f.cache)
 }
 
+func (f *FileLinksRepository) FindLinksByUID(uid string) []LinkEntity {
+	result := make([]LinkEntity, 0, 100)
+	for _, entity := range f.cache {
+		if entity.UID == uid {
+			result = append(result, entity)
+		}
+	}
+	return result
+}
+
 // dump сохраняет длинную ссылку и ее идентификатор в файл
-func (f *FileLinksRepository) dump(linkID string, link string) error {
+func (f *FileLinksRepository) dump(item LinkEntity) error {
 	defer f.file.Sync()
 
-	entity := ShortenEntity{
-		ID:      linkID,
-		LongURL: link,
-	}
-	if err := f.encoder.Encode(entity); err != nil {
+	if err := f.encoder.Encode(item); err != nil {
 		return err
 	}
 	return nil
@@ -90,14 +89,14 @@ func (f *FileLinksRepository) dump(linkID string, link string) error {
 func (f *FileLinksRepository) loadCache() error {
 	decoder := json.NewDecoder(f.file)
 	for {
-		entity := ShortenEntity{}
+		entity := LinkEntity{}
 		if err := decoder.Decode(&entity); err != nil {
 			if errors.Is(err, io.EOF) {
 				break
 			}
 			return err
 		}
-		f.cache[entity.ID] = entity.LongURL
+		f.cache[entity.ID] = entity
 	}
 	log.Info().Msgf("load %d records from storage", f.Count())
 	return nil
