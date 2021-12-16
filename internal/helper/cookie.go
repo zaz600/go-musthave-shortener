@@ -1,17 +1,20 @@
-package hellper
+package helper
 
 import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
-
-	"github.com/zaz600/go-musthave-shortener/internal/random"
 )
 
 const uidCookieName = "SHORTENER_UID"
+
+var ErrInvalidCookieValue = errors.New("invalid cookie value")
+var ErrInvalidCookieDigest = errors.New("invalid cookie digest")
+var ErrNoCookie = errors.New("no cookie")
 
 var secret = "mysecret" // Прочитать из env/конфига
 
@@ -34,20 +37,21 @@ func checkHash(data string, hash string) bool {
 // ExtractUID извлекает из куки uid пользователя и валидирует его.
 // Если хэш корректный, возвращает uid.
 // Если куки нет или хеш невалидный - генерирует новый uid
-func ExtractUID(cookies []*http.Cookie) string {
+func ExtractUID(cookies []*http.Cookie) (string, error) {
 	for _, cookie := range cookies {
 		if cookie.Name == uidCookieName {
 			parts := strings.Split(cookie.Value, ":")
 			if len(parts) != 2 {
-				return random.UserID()
+				return "", ErrInvalidCookieValue
 			}
 			uid, hash := parts[0], parts[1]
 			if checkHash(uid, hash) {
-				return uid
+				return uid, nil
 			}
+			return "", ErrInvalidCookieDigest
 		}
 	}
-	return random.UserID()
+	return "", ErrNoCookie
 }
 
 // SetUIDCookie сохраняет в куку uid пользователя вместе с его hmac
