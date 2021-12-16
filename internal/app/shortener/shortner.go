@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/zaz600/go-musthave-shortener/internal/app/repository"
 	"github.com/zaz600/go-musthave-shortener/internal/compress"
+	"github.com/zaz600/go-musthave-shortener/internal/hellper"
 )
 
 type Service struct {
@@ -50,7 +51,12 @@ func NewService(baseURL string, opts ...Option) *Service {
 	s.Get("/{linkID}", s.GetLongURL())
 	s.Post("/", s.SaveLongURL())
 	s.Post("/api/shorten", s.ShortenJSON())
+	s.Get("/user/urls", s.GetUserLinks())
 	return s
+}
+
+func (s *Service) shortUL(linkID string) string {
+	return fmt.Sprintf("%s/%s", s.baseURL, linkID)
 }
 
 func (s *Service) GetLongURL() http.HandlerFunc {
@@ -81,15 +87,17 @@ func (s *Service) SaveLongURL() http.HandlerFunc {
 			http.Error(w, "invalid url "+longURL, http.StatusBadRequest)
 			return
 		}
-		linkEntity := repository.NewLinkEntity(longURL, "unknown")
+		uid := hellper.ExtractUID(r.Cookies())
+		linkEntity := repository.NewLinkEntity(longURL, uid)
 		linkID, err := s.repository.Put(linkEntity)
 		if err != nil {
 			http.Error(w, "invalid request params", http.StatusBadRequest)
 			return
 		}
+		hellper.SetUIDCookie(w, uid)
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(http.StatusCreated)
-		_, _ = fmt.Fprintf(w, "%s/%s", s.baseURL, linkID)
+		_, _ = fmt.Fprint(w, s.shortUL(linkID))
 	}
 }
 
@@ -108,7 +116,8 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 			http.Error(w, "invalid url", http.StatusBadRequest)
 			return
 		}
-		linkEntity := repository.NewLinkEntity(longURL, "unknown")
+		uid := hellper.ExtractUID(r.Cookies())
+		linkEntity := repository.NewLinkEntity(longURL, uid)
 		linkID, err := s.repository.Put(linkEntity)
 		if err != nil {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -123,9 +132,41 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
-
+		hellper.SetUIDCookie(w, uid)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
+		_, _ = fmt.Fprint(w, string(data))
+	}
+}
+
+type UserLinksResponseEntry struct {
+	ShortURL    string `json:"short_url"`
+	OriginalURL string `json:"original_url"`
+}
+
+func (s *Service) GetUserLinks() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		uid := hellper.ExtractUID(r.Cookies())
+		links := s.repository.FindLinksByUID(uid)
+		if len(links) == 0 {
+			http.Error(w, "no links", http.StatusNoContent)
+			return
+		}
+		var result []UserLinksResponseEntry
+
+		for _, entity := range links {
+			result = append(result, UserLinksResponseEntry{
+				ShortURL:    s.shortUL(entity.ID),
+				OriginalURL: entity.LongURL,
+			})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		data, err := json.Marshal(result)
+		if err != nil {
+			http.Error(w, "no links", http.StatusNoContent)
+			return
+		}
 		_, _ = fmt.Fprint(w, string(data))
 	}
 }
