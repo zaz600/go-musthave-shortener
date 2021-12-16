@@ -10,7 +10,7 @@ const (
 type LinkEntity struct {
 	ID      string `json:"id"`
 	LongURL string `json:"long_url"`
-	User    string `json:"user,omitempty"`
+	UID     string `json:"uid,omitempty"`
 }
 
 type LinksRepository interface {
