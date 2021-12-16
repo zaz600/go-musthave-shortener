@@ -56,8 +56,8 @@ func NewService(baseURL string, opts ...Option) *Service {
 func (s *Service) GetLongURL() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		linkID := chi.URLParam(r, "linkID")
-		if longURL, err := s.repository.Get(linkID); err == nil {
-			http.Redirect(w, r, longURL, http.StatusTemporaryRedirect)
+		if linkEntity, err := s.repository.Get(linkID); err == nil {
+			http.Redirect(w, r, linkEntity.LongURL, http.StatusTemporaryRedirect)
 			return
 		}
 		http.Error(w, "url not found", http.StatusBadRequest)
@@ -81,7 +81,8 @@ func (s *Service) SaveLongURL() http.HandlerFunc {
 			http.Error(w, "invalid url "+longURL, http.StatusBadRequest)
 			return
 		}
-		linkID, err := s.repository.Put(longURL)
+		linkEntity := repository.NewLinkEntity(longURL, "unknown")
+		linkID, err := s.repository.Put(linkEntity)
 		if err != nil {
 			http.Error(w, "invalid request params", http.StatusBadRequest)
 			return
@@ -107,7 +108,8 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 			http.Error(w, "invalid url", http.StatusBadRequest)
 			return
 		}
-		linkID, err := s.repository.Put(longURL)
+		linkEntity := repository.NewLinkEntity(longURL, "unknown")
+		linkID, err := s.repository.Put(linkEntity)
 		if err != nil {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return

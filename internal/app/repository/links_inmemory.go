@@ -3,8 +3,6 @@ package repository
 import (
 	"fmt"
 	"sync"
-
-	"github.com/zaz600/go-musthave-shortener/internal/random"
 )
 
 type InMemoryLinksRepository struct {
@@ -23,31 +21,36 @@ func NewInMemoryLinksRepository(db map[string]LinkEntity) InMemoryLinksRepositor
 }
 
 // Get извлекает из хранилища длинный url по идентификатору
-func (m InMemoryLinksRepository) Get(linkID string) (string, error) {
+func (m InMemoryLinksRepository) Get(linkID string) (LinkEntity, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	if entity, ok := m.db[linkID]; ok {
-		return entity.LongURL, nil
+		return entity, nil
 	}
-	return "", fmt.Errorf("link with id '%s' not found", linkID)
+	return LinkEntity{}, fmt.Errorf("link with id '%s' not found", linkID)
 }
 
 // Put сохраняет длинный url в хранилище и возвращает идентификатор,
 // с которым длинный url можно получить обратно
-func (m InMemoryLinksRepository) Put(link string) (string, error) {
+func (m InMemoryLinksRepository) Put(linkEntity LinkEntity) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	linkID := random.String(8)
-	item := LinkEntity{
-		ID:      linkID,
-		LongURL: link,
-	}
-	m.db[linkID] = item
-	return linkID, nil
+	m.db[linkEntity.ID] = linkEntity
+	return linkEntity.ID, nil
 }
 
 func (m InMemoryLinksRepository) Count() int {
 	return len(m.db)
+}
+
+func (m InMemoryLinksRepository) FindLinksByUID(uid string) []LinkEntity {
+	result := make([]LinkEntity, 0, 100)
+	for _, entity := range m.db {
+		if entity.UID == uid {
+			result = append(result, entity)
+		}
+	}
+	return result
 }

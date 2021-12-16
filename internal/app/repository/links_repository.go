@@ -1,5 +1,7 @@
 package repository
 
+import "github.com/zaz600/go-musthave-shortener/internal/random"
+
 type RepoType int
 
 const (
@@ -13,8 +15,17 @@ type LinkEntity struct {
 	UID     string `json:"uid,omitempty"`
 }
 
+func NewLinkEntity(longURL string, uid string) LinkEntity {
+	return LinkEntity{
+		ID:      random.String(8),
+		LongURL: longURL,
+		UID:     uid,
+	}
+}
+
 type LinksRepository interface {
-	Get(linkID string) (string, error)
-	Put(link string) (string, error)
+	Get(linkID string) (LinkEntity, error)
+	Put(linkEntity LinkEntity) (string, error)
 	Count() int
+	FindLinksByUID(uuid string) []LinkEntity
 }

@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/rs/zerolog/log"
-	"github.com/zaz600/go-musthave-shortener/internal/random"
 )
 
 type FileLinksRepository struct {
@@ -41,34 +40,39 @@ func NewFileLinksRepository(path string) (*FileLinksRepository, error) {
 	return repo, nil
 }
 
-func (f *FileLinksRepository) Get(linkID string) (string, error) {
+func (f *FileLinksRepository) Get(linkID string) (LinkEntity, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
 	if entity, ok := f.cache[linkID]; ok {
-		return entity.LongURL, nil
+		return entity, nil
 	}
-	return "", fmt.Errorf("link with id '%s' not found", linkID)
+	return LinkEntity{}, fmt.Errorf("link with id '%s' not found", linkID)
 }
 
-func (f *FileLinksRepository) Put(link string) (string, error) {
+func (f *FileLinksRepository) Put(linkEntity LinkEntity) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	linkID := random.String(8)
-	item := LinkEntity{
-		ID:      linkID,
-		LongURL: link,
-	}
-	f.cache[linkID] = item
-	if err := f.dump(item); err != nil {
+	f.cache[linkEntity.ID] = linkEntity
+	if err := f.dump(linkEntity); err != nil {
 		return "", err
 	}
-	return linkID, nil
+	return linkEntity.ID, nil
 }
 
 func (f *FileLinksRepository) Count() int {
 	return len(f.cache)
+}
+
+func (f *FileLinksRepository) FindLinksByUID(uid string) []LinkEntity {
+	result := make([]LinkEntity, 0, 100)
+	for _, entity := range f.cache {
+		if entity.UID == uid {
+			result = append(result, entity)
+		}
+	}
+	return result
 }
 
 // dump сохраняет длинную ссылку и ее идентификатор в файл
