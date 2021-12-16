@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zaz600/go-musthave-shortener/internal/app/repository"
-	"github.com/zaz600/go-musthave-shortener/internal/hellper"
 )
 
 const baseURL = "http://localhost:8080"
@@ -101,7 +100,7 @@ func TestService_Get(t *testing.T) {
 			ts := httptest.NewServer(s.Mux)
 			defer ts.Close()
 
-			res, _ := testRequest(t, ts, "GET", tt.queryString, nil, "") //nolint:bodyclose
+			res, _ := testRequest(t, ts, "GET", tt.queryString, nil, nil) //nolint:bodyclose
 			defer res.Body.Close()
 			assert.Equal(t, tt.want.code, res.StatusCode)
 			assert.Equal(t, tt.want.location, res.Header.Get("location"))
@@ -167,7 +166,7 @@ func TestService_Post(t *testing.T) {
 			ts := httptest.NewServer(s.Mux)
 			defer ts.Close()
 
-			res, respBody := testRequest(t, ts, "POST", tt.queryString, bytes.NewReader(tt.body), "") //nolint:bodyclose
+			res, respBody := testRequest(t, ts, "POST", tt.queryString, bytes.NewReader(tt.body), nil) //nolint:bodyclose
 			defer res.Body.Close()
 
 			assert.Equal(t, tt.want.code, res.StatusCode)
@@ -208,14 +207,14 @@ func TestService_SuccessPath(t *testing.T) {
 	defer ts.Close()
 
 	// сохраняем длинный урл
-	resGet, shortLink := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), "") //nolint:bodyclose
+	resGet, shortLink := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
 	defer resGet.Body.Close()
 	assert.NotEmpty(t, shortLink)
 	parsedURL, err := url.Parse(shortLink)
 	assert.NoError(t, err)
 
 	// достаем длинный урл
-	res, _ := testRequest(t, ts, "GET", parsedURL.Path, nil, "") //nolint:bodyclose
+	res, _ := testRequest(t, ts, "GET", parsedURL.Path, nil, nil) //nolint:bodyclose
 	defer res.Body.Close()
 
 	assert.Equal(t, want.code, res.StatusCode)
@@ -236,7 +235,7 @@ func TestService_PostMultiple(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		longURL := fmt.Sprintf(`https://yandex.ru/search/?lr=2&text=abc%d`, i)
-		res, _ := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), "") //nolint:bodyclose
+		res, _ := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
 		res.Body.Close()
 	}
 
@@ -257,13 +256,20 @@ func TestService_GetUserLinks(t *testing.T) {
 	defer ts.Close()
 
 	// сохраняем длинный урл
-	resGet, shortLink := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), "") //nolint:bodyclose
+	resGet, shortLink := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
 	defer resGet.Body.Close()
 	assert.NotEmpty(t, shortLink)
 
-	uid := hellper.ExtractUID(resGet.Cookies())
+	var uidCookie *http.Cookie
+	for _, cookie := range resGet.Cookies() {
+		if cookie.Name == "SHORTENER_UID" {
+			uidCookie = cookie
+			break
+		}
+	}
+	require.NotNil(t, uidCookie)
 
-	res, respBody := testRequest(t, ts, "GET", "/user/urls", nil, uid)
+	res, respBody := testRequest(t, ts, "GET", "/user/urls", nil, uidCookie)
 	res.Body.Close()
 
 	var actual []UserLinksResponseEntry
@@ -367,7 +373,7 @@ func TestService_Post_JSON(t *testing.T) {
 			ts := httptest.NewServer(s.Mux)
 			defer ts.Close()
 
-			res, respBody := testRequest(t, ts, "POST", tt.queryString, bytes.NewReader(tt.body), "") //nolint:bodyclose
+			res, respBody := testRequest(t, ts, "POST", tt.queryString, bytes.NewReader(tt.body), nil) //nolint:bodyclose
 			defer res.Body.Close()
 
 			assert.Equal(t, tt.want.code, res.StatusCode)
@@ -387,7 +393,7 @@ func TestService_Post_JSON(t *testing.T) {
 	}
 }
 
-func testRequest(t *testing.T, ts *httptest.Server, method, path string, body io.Reader, uid string) (*http.Response, string) {
+func testRequest(t *testing.T, ts *httptest.Server, method, path string, body io.Reader, cookie *http.Cookie) (*http.Response, string) {
 	req, err := http.NewRequest(method, ts.URL+path, body)
 	require.NoError(t, err)
 
@@ -401,15 +407,7 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, body io
 		Jar: jar,
 	}
 
-	if uid != "" {
-		uuidSigned := fmt.Sprintf("%s:%s", uid, hellper.CalcHash(uid))
-
-		cookie := &http.Cookie{
-			Name:   "SHORTENER_UID",
-			Value:  uuidSigned,
-			MaxAge: 3000000,
-		}
-
+	if cookie != nil {
 		urlObj, _ := url.Parse(ts.URL)
 		client.Jar.SetCookies(urlObj, []*http.Cookie{cookie})
 	}
