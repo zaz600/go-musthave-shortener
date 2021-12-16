@@ -15,7 +15,7 @@ const uidCookieName = "SHORTENER_UID"
 
 var secret = "mysecret" // Прочитать из env/конфига
 
-func calcHash(data string) string {
+func CalcHash(data string) string {
 	h := hmac.New(sha256.New, []byte(secret))
 	h.Write([]byte(data))
 	return hex.EncodeToString(h.Sum(nil))
@@ -45,7 +45,6 @@ func ExtractUID(cookies []*http.Cookie) string {
 			if checkHash(uid, hash) {
 				return uid
 			}
-
 		}
 	}
 	return random.UserID()
@@ -53,7 +52,7 @@ func ExtractUID(cookies []*http.Cookie) string {
 
 // SetUIDCookie сохраняет в куку uid пользователя вместе с его hmac
 func SetUIDCookie(w http.ResponseWriter, uid string) {
-	uuidSigned := fmt.Sprintf("%s:%s", uid, calcHash(uid))
+	uuidSigned := fmt.Sprintf("%s:%s", uid, CalcHash(uid))
 
 	http.SetCookie(w, &http.Cookie{
 		Name:   uidCookieName,

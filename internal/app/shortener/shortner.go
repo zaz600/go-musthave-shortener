@@ -139,11 +139,6 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 	}
 }
 
-type UserLinksResponseEntry struct {
-	ShortURL    string `json:"short_url"`
-	OriginalURL string `json:"original_url"`
-}
-
 func (s *Service) GetUserLinks() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uid := hellper.ExtractUID(r.Cookies())
