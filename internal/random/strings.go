@@ -19,3 +19,9 @@ func String(length int) string {
 	}
 	return string(b)
 }
+
+// UserID генерирует uid пользователя.
+// В будущем лучше заменить на https://pkg.go.dev/github.com/google/uuid
+func UserID() string {
+	return String(24)
+}
