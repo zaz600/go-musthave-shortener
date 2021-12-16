@@ -9,12 +9,12 @@ import (
 
 type InMemoryLinksRepository struct {
 	mu *sync.RWMutex
-	db map[string]string
+	db map[string]LinkEntity
 }
 
-func NewInMemoryLinksRepository(db map[string]string) InMemoryLinksRepository {
+func NewInMemoryLinksRepository(db map[string]LinkEntity) InMemoryLinksRepository {
 	if db == nil {
-		db = make(map[string]string)
+		db = make(map[string]LinkEntity)
 	}
 	return InMemoryLinksRepository{
 		mu: &sync.RWMutex{},
@@ -27,8 +27,8 @@ func (m InMemoryLinksRepository) Get(linkID string) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	if longURL, ok := m.db[linkID]; ok {
-		return longURL, nil
+	if entity, ok := m.db[linkID]; ok {
+		return entity.LongURL, nil
 	}
 	return "", fmt.Errorf("link with id '%s' not found", linkID)
 }
@@ -40,7 +40,11 @@ func (m InMemoryLinksRepository) Put(link string) (string, error) {
 	defer m.mu.Unlock()
 
 	linkID := random.String(8)
-	m.db[linkID] = link
+	item := LinkEntity{
+		ID:      linkID,
+		LongURL: link,
+	}
+	m.db[linkID] = item
 	return linkID, nil
 }
 

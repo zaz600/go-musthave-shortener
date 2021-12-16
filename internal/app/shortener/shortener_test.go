@@ -58,13 +58,18 @@ func TestService_Get(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		db          map[string]string
+		db          map[string]repository.LinkEntity
 		queryString string
 		want        want
 	}{
 		{
-			name:        "id exists",
-			db:          map[string]string{"1": "http://ya.ru/123"},
+			name: "id exists",
+			db: map[string]repository.LinkEntity{
+				"1": {
+					ID:      "1",
+					LongURL: "http://ya.ru/123",
+				},
+			},
 			queryString: "/1",
 			want: want{
 				code:        http.StatusTemporaryRedirect,
@@ -73,8 +78,13 @@ func TestService_Get(t *testing.T) {
 			},
 		},
 		{
-			name:        "id does not exists",
-			db:          map[string]string{"1": "http://ya.ru/123"},
+			name: "id does not exists",
+			db: map[string]repository.LinkEntity{
+				"1": {
+					ID:      "1",
+					LongURL: "http://ya.ru/123",
+				},
+			},
 			queryString: "/2",
 			want: want{
 				code:        http.StatusBadRequest,
@@ -107,15 +117,20 @@ func TestService_Post(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		db          map[string]string
+		db          map[string]repository.LinkEntity
 		queryString string
 		body        []byte
 		want        want
 		correctURL  bool
 	}{
 		{
-			name:        "correct url",
-			db:          map[string]string{"100": "http://ya.ru/123"},
+			name: "correct url",
+			db: map[string]repository.LinkEntity{
+				"100": {
+					ID:      "100",
+					LongURL: "http://ya.ru/123",
+				},
+			},
 			queryString: "/",
 			body:        []byte(`https://yandex.ru/search/?lr=2&text=abc`),
 			want: want{
@@ -126,8 +141,13 @@ func TestService_Post(t *testing.T) {
 			correctURL: true,
 		},
 		{
-			name:        "incorrect url",
-			db:          map[string]string{"100": "http://ya.ru/123"},
+			name: "incorrect url",
+			db: map[string]repository.LinkEntity{
+				"100": {
+					ID:      "100",
+					LongURL: "http://ya.ru/123",
+				},
+			},
 			queryString: "/",
 			body:        []byte(``),
 			want: want{
@@ -174,7 +194,12 @@ func TestService_SuccessPath(t *testing.T) {
 		contentType: "text/html; charset=utf-8",
 	}
 
-	db := map[string]string{"100": "http://ya.ru/123"}
+	db := map[string]repository.LinkEntity{
+		"100": {
+			ID:      "100",
+			LongURL: "http://ya.ru/123",
+		},
+	}
 	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(db)))
 
 	ts := httptest.NewServer(s.Mux)
@@ -197,7 +222,12 @@ func TestService_SuccessPath(t *testing.T) {
 }
 
 func TestService_PostMultiple(t *testing.T) {
-	db := map[string]string{"100": "http://ya.ru/123"}
+	db := map[string]repository.LinkEntity{
+		"100": {
+			ID:      "100",
+			LongURL: "http://ya.ru/123",
+		},
+	}
 	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(db)))
 	ts := httptest.NewServer(s.Mux)
 	defer ts.Close()
@@ -221,7 +251,7 @@ func TestService_Post_JSON(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		db          map[string]string
+		db          map[string]repository.LinkEntity
 		queryString string
 		body        []byte
 		contentType string
@@ -229,8 +259,13 @@ func TestService_Post_JSON(t *testing.T) {
 		correctURL  bool
 	}{
 		{
-			name:        "correct url",
-			db:          map[string]string{"100": "http://ya.ru/123"},
+			name: "correct url",
+			db: map[string]repository.LinkEntity{
+				"100": {
+					ID:      "100",
+					LongURL: "http://ya.ru/123",
+				},
+			},
 			queryString: "/api/shorten",
 			body:        []byte(`{"url": "https://ya.ru"}`),
 			want: want{
@@ -241,8 +276,13 @@ func TestService_Post_JSON(t *testing.T) {
 			correctURL: true,
 		},
 		{
-			name:        "incorrect url",
-			db:          map[string]string{"100": "http://ya.ru/123"},
+			name: "incorrect url",
+			db: map[string]repository.LinkEntity{
+				"100": {
+					ID:      "100",
+					LongURL: "http://ya.ru/123",
+				},
+			},
 			queryString: "/api/shorten",
 			body:        []byte(``),
 			want: want{
@@ -253,8 +293,13 @@ func TestService_Post_JSON(t *testing.T) {
 			correctURL: false,
 		},
 		{
-			name:        "invalid json",
-			db:          map[string]string{"100": "http://ya.ru/123"},
+			name: "invalid json",
+			db: map[string]repository.LinkEntity{
+				"100": {
+					ID:      "100",
+					LongURL: "http://ya.ru/123",
+				},
+			},
 			queryString: "/api/shorten",
 			body:        []byte(`{"url":"http://ya.ru"`),
 			want: want{
@@ -265,8 +310,13 @@ func TestService_Post_JSON(t *testing.T) {
 			correctURL: false,
 		},
 		{
-			name:        "missing field",
-			db:          map[string]string{"100": "http://ya.ru/123"},
+			name: "missing field",
+			db: map[string]repository.LinkEntity{
+				"100": {
+					ID:      "100",
+					LongURL: "http://ya.ru/123",
+				},
+			},
 			queryString: "/api/shorten",
 			body:        []byte(`{"foo":"http://ya.ru"}`),
 			want: want{

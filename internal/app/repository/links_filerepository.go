@@ -17,12 +17,7 @@ type FileLinksRepository struct {
 	file            *os.File
 	encoder         *json.Encoder
 	mu              *sync.RWMutex
-	cache           map[string]string
-}
-
-type ShortenEntity struct {
-	ID      string `json:"id"`
-	LongURL string `json:"long_url"`
+	cache           map[string]LinkEntity
 }
 
 func NewFileLinksRepository(path string) (*FileLinksRepository, error) {
@@ -37,7 +32,7 @@ func NewFileLinksRepository(path string) (*FileLinksRepository, error) {
 		encoder:         json.NewEncoder(file),
 
 		mu:    &sync.RWMutex{},
-		cache: make(map[string]string),
+		cache: make(map[string]LinkEntity),
 	}
 
 	if err = repo.loadCache(); err != nil {
@@ -50,8 +45,8 @@ func (f *FileLinksRepository) Get(linkID string) (string, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
-	if longURL, ok := f.cache[linkID]; ok {
-		return longURL, nil
+	if entity, ok := f.cache[linkID]; ok {
+		return entity.LongURL, nil
 	}
 	return "", fmt.Errorf("link with id '%s' not found", linkID)
 }
@@ -61,8 +56,12 @@ func (f *FileLinksRepository) Put(link string) (string, error) {
 	defer f.mu.Unlock()
 
 	linkID := random.String(8)
-	f.cache[linkID] = link
-	if err := f.dump(linkID, link); err != nil {
+	item := LinkEntity{
+		ID:      linkID,
+		LongURL: link,
+	}
+	f.cache[linkID] = item
+	if err := f.dump(item); err != nil {
 		return "", err
 	}
 	return linkID, nil
@@ -73,14 +72,10 @@ func (f *FileLinksRepository) Count() int {
 }
 
 // dump сохраняет длинную ссылку и ее идентификатор в файл
-func (f *FileLinksRepository) dump(linkID string, link string) error {
+func (f *FileLinksRepository) dump(item LinkEntity) error {
 	defer f.file.Sync()
 
-	entity := ShortenEntity{
-		ID:      linkID,
-		LongURL: link,
-	}
-	if err := f.encoder.Encode(entity); err != nil {
+	if err := f.encoder.Encode(item); err != nil {
 		return err
 	}
 	return nil
@@ -90,14 +85,14 @@ func (f *FileLinksRepository) dump(linkID string, link string) error {
 func (f *FileLinksRepository) loadCache() error {
 	decoder := json.NewDecoder(f.file)
 	for {
-		entity := ShortenEntity{}
+		entity := LinkEntity{}
 		if err := decoder.Decode(&entity); err != nil {
 			if errors.Is(err, io.EOF) {
 				break
 			}
 			return err
 		}
-		f.cache[entity.ID] = entity.LongURL
+		f.cache[entity.ID] = entity
 	}
 	log.Info().Msgf("load %d records from storage", f.Count())
 	return nil
