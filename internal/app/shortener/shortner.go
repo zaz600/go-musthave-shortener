@@ -54,6 +54,7 @@ func NewService(baseURL string, opts ...Option) *Service {
 	s.Post("/", s.SaveLongURL())
 	s.Post("/api/shorten", s.ShortenJSON())
 	s.Get("/user/urls", s.GetUserLinks())
+	s.Get("/ping", s.Ping())
 	return s
 }
 
@@ -178,6 +179,19 @@ func (s *Service) GetUserLinks() http.HandlerFunc {
 			return
 		}
 		_, _ = fmt.Fprint(w, string(data))
+	}
+}
+
+func (s *Service) Ping() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		err := s.repository.Status()
+		if err != nil {
+			http.Error(w, "pg connection error", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = fmt.Fprint(w, "connected")
 	}
 }
 
