@@ -196,6 +196,9 @@ func (s *Service) logCookieError(r *http.Request, err error) {
 			Msg("")
 	}
 }
+func (s *Service) Shutdown() error {
+	return s.repository.Close()
+}
 
 // isValidURL проверяет адрес на пригодность для сохранения в БД
 func isValidURL(longURL string) bool {

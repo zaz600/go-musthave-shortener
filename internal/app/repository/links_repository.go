@@ -7,6 +7,7 @@ type RepoType int
 const (
 	MemoryRepo RepoType = iota
 	FileRepo
+	DatabaseRepo
 )
 
 type LinkEntity struct {
@@ -28,4 +29,6 @@ type LinksRepository interface {
 	Put(linkEntity LinkEntity) (string, error)
 	Count() int
 	FindLinksByUID(uuid string) []LinkEntity
+	Status() error
+	Close() error
 }

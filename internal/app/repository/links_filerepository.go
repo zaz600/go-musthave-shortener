@@ -101,3 +101,11 @@ func (f *FileLinksRepository) loadCache() error {
 	log.Info().Msgf("load %d records from storage", f.Count())
 	return nil
 }
+
+func (f *FileLinksRepository) Status() error {
+	return nil
+}
+
+func (f *FileLinksRepository) Close() error {
+	return f.file.Close()
+}
