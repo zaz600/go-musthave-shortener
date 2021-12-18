@@ -23,6 +23,7 @@ type Service struct {
 	*chi.Mux
 	baseURL    string
 	repository repository.LinksRepository
+	RepoTmp    *repository.PgLinksRepository // удалить на следующем инкременте
 }
 
 func NewService(baseURL string, opts ...Option) *Service {
@@ -54,6 +55,7 @@ func NewService(baseURL string, opts ...Option) *Service {
 	s.Post("/", s.SaveLongURL())
 	s.Post("/api/shorten", s.ShortenJSON())
 	s.Get("/user/urls", s.GetUserLinks())
+	s.Get("/ping", s.Ping())
 	return s
 }
 
@@ -181,6 +183,19 @@ func (s *Service) GetUserLinks() http.HandlerFunc {
 	}
 }
 
+func (s *Service) Ping() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		err := s.RepoTmp.Status()
+		if err != nil {
+			http.Error(w, "pg connection error", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = fmt.Fprint(w, "connected")
+	}
+}
+
 func (s *Service) logCookieError(r *http.Request, err error) {
 	if errors.Is(err, helper.ErrInvalidCookieDigest) {
 		log.Warn().
@@ -195,6 +210,9 @@ func (s *Service) logCookieError(r *http.Request, err error) {
 			}).
 			Msg("")
 	}
+}
+func (s *Service) Shutdown() error {
+	return s.repository.Close()
 }
 
 // isValidURL проверяет адрес на пригодность для сохранения в БД

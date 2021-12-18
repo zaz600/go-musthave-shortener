@@ -30,17 +30,30 @@ func runApp(args []string) (err error) {
 	log.Info().Msgf("app cfg: %+v", cfg)
 
 	var repo repository.LinksRepository
-	if cfg.GetRepositoryType() == repository.FileRepo {
+	switch cfg.GetRepositoryType() {
+	case repository.FileRepo:
 		log.Info().Msgf("FileRepository %s", cfg.FileStoragePath)
 		repo, err = repository.NewFileLinksRepository(cfg.FileStoragePath)
 		if err != nil {
 			return err
 		}
-	} else {
+	case repository.DatabaseRepo:
+		log.Info().Msg("DatabaseRepo")
+		repo, err = repository.NewPgLinksRepository(cfg.DatabaseDSN)
+		if err != nil {
+			return err
+		}
+	default:
 		log.Info().Msg("MemoryRepository")
 		repo = repository.NewInMemoryLinksRepository(nil)
 	}
 
 	s := shortener.NewService(cfg.BaseURL, shortener.WithRepository(repo))
+
+	repoTmp, _ := repository.NewPgLinksRepository(cfg.DatabaseDSN)
+	defer repoTmp.Close()
+	s.RepoTmp = repoTmp
+
+	defer s.Shutdown()
 	return http.ListenAndServe(cfg.ServerAddress, s)
 }

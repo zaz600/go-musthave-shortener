@@ -54,3 +54,11 @@ func (m InMemoryLinksRepository) FindLinksByUID(uid string) []LinkEntity {
 	}
 	return result
 }
+
+func (m InMemoryLinksRepository) Status() error {
+	return nil
+}
+
+func (m InMemoryLinksRepository) Close() error {
+	return nil
+}

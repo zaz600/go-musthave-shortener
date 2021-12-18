@@ -15,6 +15,7 @@ type ShortenConfig struct {
 	BaseURL         string
 	ServerAddress   string
 	FileStoragePath string
+	DatabaseDSN     string
 }
 
 func (s ShortenConfig) GetRepositoryType() repository.RepoType {
@@ -23,6 +24,10 @@ func (s ShortenConfig) GetRepositoryType() repository.RepoType {
 	if s.FileStoragePath != "" {
 		return repository.FileRepo
 	}
+	// 11 инкремент
+	// if s.DatabaseDSN != "" {
+	// 	return repository.DatabaseRepo
+	// }
 	return repository.MemoryRepo
 }
 
@@ -34,6 +39,7 @@ func GetConfig(args []string) *ShortenConfig {
 	flag.StringVar(&cfg.ServerAddress, "a", getEnvOrDefault("SERVER_ADDRESS", defaultServerAddress), "listen address. env: SERVER_ADDRESS")
 	flag.StringVar(&cfg.BaseURL, "b", getEnvOrDefault("BASE_URL", defaultBaseURL), "base url for short link. env: BASE_URL")
 	flag.StringVar(&cfg.FileStoragePath, "f", getEnvOrDefault("FILE_STORAGE_PATH", ""), "file storage path. env: FILE_STORAGE_PATH")
+	flag.StringVar(&cfg.DatabaseDSN, "d", getEnvOrDefault("DATABASE_DSN", ""), "PG dsn. env: DATABASE_DSN")
 	flag.Parse()
 	return cfg
 }
