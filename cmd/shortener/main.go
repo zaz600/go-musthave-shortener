@@ -37,20 +37,23 @@ func runApp(args []string) (err error) {
 		if err != nil {
 			return err
 		}
-		break
 	case repository.DatabaseRepo:
 		log.Info().Msg("DatabaseRepo")
 		repo, err = repository.NewPgLinksRepository(cfg.DatabaseDSN)
 		if err != nil {
 			return err
 		}
-		break
 	default:
 		log.Info().Msg("MemoryRepository")
 		repo = repository.NewInMemoryLinksRepository(nil)
 	}
 
 	s := shortener.NewService(cfg.BaseURL, shortener.WithRepository(repo))
+
+	repoTmp, _ := repository.NewPgLinksRepository(cfg.DatabaseDSN)
+	defer repoTmp.Close()
+	s.RepoTmp = repoTmp
+
 	defer s.Shutdown()
 	return http.ListenAndServe(cfg.ServerAddress, s)
 }

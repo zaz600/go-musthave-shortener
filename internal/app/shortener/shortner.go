@@ -23,6 +23,7 @@ type Service struct {
 	*chi.Mux
 	baseURL    string
 	repository repository.LinksRepository
+	RepoTmp    *repository.PgLinksRepository // удалить на следующем инкременте
 }
 
 func NewService(baseURL string, opts ...Option) *Service {
@@ -184,7 +185,7 @@ func (s *Service) GetUserLinks() http.HandlerFunc {
 
 func (s *Service) Ping() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		err := s.repository.Status()
+		err := s.RepoTmp.Status()
 		if err != nil {
 			http.Error(w, "pg connection error", http.StatusInternalServerError)
 			return
