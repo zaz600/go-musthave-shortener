@@ -25,9 +25,9 @@ func (s ShortenConfig) GetRepositoryType() repository.RepoType {
 		return repository.FileRepo
 	}
 	// 11 инкремент
-	// if s.DatabaseDSN != "" {
-	// 	return repository.DatabaseRepo
-	// }
+	if s.DatabaseDSN != "" {
+		return repository.DatabaseRepo
+	}
 	return repository.MemoryRepo
 }
 

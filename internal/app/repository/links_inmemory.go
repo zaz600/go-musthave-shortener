@@ -41,18 +41,18 @@ func (m InMemoryLinksRepository) Put(linkEntity LinkEntity) (string, error) {
 	return linkEntity.ID, nil
 }
 
-func (m InMemoryLinksRepository) Count() int {
-	return len(m.db)
+func (m InMemoryLinksRepository) Count() (int, error) {
+	return len(m.db), nil
 }
 
-func (m InMemoryLinksRepository) FindLinksByUID(uid string) []LinkEntity {
+func (m InMemoryLinksRepository) FindLinksByUID(uid string) ([]LinkEntity, error) {
 	result := make([]LinkEntity, 0, 100)
 	for _, entity := range m.db {
 		if entity.UID == uid {
 			result = append(result, entity)
 		}
 	}
-	return result
+	return result, nil
 }
 
 func (m InMemoryLinksRepository) Status() error {
