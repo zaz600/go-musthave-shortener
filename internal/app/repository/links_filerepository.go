@@ -61,6 +61,19 @@ func (f *FileLinksRepository) Put(linkEntity LinkEntity) (string, error) {
 	return linkEntity.ID, nil
 }
 
+func (f *FileLinksRepository) PutBatch(linkEntities []LinkEntity) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	for _, linkEntity := range linkEntities {
+		f.cache[linkEntity.ID] = linkEntity
+		if err := f.dump(linkEntity); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (f *FileLinksRepository) Count() (int, error) {
 	return len(f.cache), nil
 }

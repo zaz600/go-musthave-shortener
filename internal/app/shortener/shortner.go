@@ -53,6 +53,7 @@ func NewService(baseURL string, opts ...Option) *Service {
 	s.Get("/{linkID}", s.GetOriginalURL())
 	s.Post("/", s.ShortenURL())
 	s.Post("/api/shorten", s.ShortenJSON())
+	s.Post("/api/shorten/batch", s.ShortenBatch())
 	s.Get("/user/urls", s.GetUserLinks())
 	s.Get("/ping", s.Ping())
 	return s
@@ -151,6 +152,66 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 	}
 }
 
+func (s *Service) ShortenBatch() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		decoder := json.NewDecoder(r.Body)
+		var request ShortenBatchRequest
+		err := decoder.Decode(&request)
+		if err != nil {
+			http.Error(w, "invalid request params", http.StatusBadRequest)
+			return
+		}
+
+		uid, err := helper.ExtractUID(r.Cookies())
+		if err != nil {
+			s.logCookieError(r, err)
+			uid = random.UserID()
+		}
+
+		// если записей будет 1М, то конвертацию лучше делать в функции вставки,
+		// которая будет конвертировать в нужный формат батчами
+		linkEntities := make([]repository.LinkEntity, 0, len(request))
+		for _, item := range request {
+			if !isValidURL(item.URL) {
+				http.Error(w, "invalid url "+item.URL, http.StatusBadRequest)
+				return
+			}
+
+			entity := repository.NewLinkEntity(item.URL, uid)
+			entity.CorrelationID = item.CorrelationID
+			linkEntities = append(linkEntities, entity)
+		}
+		// Сейчас возможна ситуация, когда ошибка произошла на последней записи из пачки,
+		// мы вернем ошибку, хотя в бд будут вставлены все записи, кроме последней
+		// Нужно уточнить ТЗ :)
+		err = s.repository.PutBatch(linkEntities)
+		if err != nil {
+			log.Warn().Err(err).Str("uid", uid).Msg("")
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		var resp ShortenBatchResponse
+		for _, entity := range linkEntities {
+			resp = append(resp, ShortenBatchResponseItem{
+				CorrelationID: entity.CorrelationID,
+				ShortURL:      s.shortURL(entity.ID),
+			})
+		}
+
+		data, err := json.Marshal(resp)
+		if err != nil {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		helper.SetUIDCookie(w, uid)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = fmt.Fprint(w, string(data))
+	}
+}
+
 func (s *Service) GetUserLinks() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uid, err := helper.ExtractUID(r.Cookies())
@@ -216,6 +277,7 @@ func (s *Service) logCookieError(r *http.Request, err error) {
 			Msg("")
 	}
 }
+
 func (s *Service) Shutdown() error {
 	return s.repository.Close()
 }
