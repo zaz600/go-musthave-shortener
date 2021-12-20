@@ -49,11 +49,6 @@ func runApp(args []string) (err error) {
 	}
 
 	s := shortener.NewService(cfg.BaseURL, shortener.WithRepository(repo))
-
-	repoTmp, err := repository.NewPgLinksRepository(cfg.DatabaseDSN)
-	defer repoTmp.Close()
-	s.RepoTmp = repoTmp
-
 	defer s.Shutdown()
 	return http.ListenAndServe(cfg.ServerAddress, s)
 }
