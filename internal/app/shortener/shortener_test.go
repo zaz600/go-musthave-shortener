@@ -67,8 +67,8 @@ func TestService_Get(t *testing.T) {
 			name: "id exists",
 			db: map[string]repository.LinkEntity{
 				"1": {
-					ID:      "1",
-					LongURL: "http://ya.ru/123",
+					ID:          "1",
+					OriginalURL: "http://ya.ru/123",
 				},
 			},
 			queryString: "/1",
@@ -82,8 +82,8 @@ func TestService_Get(t *testing.T) {
 			name: "id does not exists",
 			db: map[string]repository.LinkEntity{
 				"1": {
-					ID:      "1",
-					LongURL: "http://ya.ru/123",
+					ID:          "1",
+					OriginalURL: "http://ya.ru/123",
 				},
 			},
 			queryString: "/2",
@@ -128,8 +128,8 @@ func TestService_Post(t *testing.T) {
 			name: "correct url",
 			db: map[string]repository.LinkEntity{
 				"100": {
-					ID:      "100",
-					LongURL: "http://ya.ru/123",
+					ID:          "100",
+					OriginalURL: "http://ya.ru/123",
 				},
 			},
 			queryString: "/",
@@ -145,8 +145,8 @@ func TestService_Post(t *testing.T) {
 			name: "incorrect url",
 			db: map[string]repository.LinkEntity{
 				"100": {
-					ID:      "100",
-					LongURL: "http://ya.ru/123",
+					ID:          "100",
+					OriginalURL: "http://ya.ru/123",
 				},
 			},
 			queryString: "/",
@@ -197,8 +197,8 @@ func TestService_SuccessPath(t *testing.T) {
 
 	db := map[string]repository.LinkEntity{
 		"100": {
-			ID:      "100",
-			LongURL: "http://ya.ru/123",
+			ID:          "100",
+			OriginalURL: "http://ya.ru/123",
 		},
 	}
 	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(db)))
@@ -225,8 +225,8 @@ func TestService_SuccessPath(t *testing.T) {
 func TestService_PostMultiple(t *testing.T) {
 	db := map[string]repository.LinkEntity{
 		"100": {
-			ID:      "100",
-			LongURL: "http://ya.ru/123",
+			ID:          "100",
+			OriginalURL: "http://ya.ru/123",
 		},
 	}
 	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(db)))
@@ -238,17 +238,18 @@ func TestService_PostMultiple(t *testing.T) {
 		res, _ := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
 		res.Body.Close()
 	}
-
-	assert.Equal(t, 6, s.repository.Count()) // 1 + 5
+	count, err := s.repository.Count()
+	assert.NoError(t, err)
+	assert.Equal(t, 6, count) // 1 + 5
 }
 
 func TestService_GetUserLinks(t *testing.T) {
 	longURL := `https://yandex.ru/search/?lr=2&text=abc`
 	db := map[string]repository.LinkEntity{
 		"100": {
-			ID:      "100",
-			LongURL: "http://ya.ru/123",
-			UID:     "100500",
+			ID:          "100",
+			OriginalURL: "http://ya.ru/123",
+			UID:         "100500",
 		},
 	}
 	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(db)))
@@ -301,8 +302,8 @@ func TestService_Post_JSON(t *testing.T) {
 			name: "correct url",
 			db: map[string]repository.LinkEntity{
 				"100": {
-					ID:      "100",
-					LongURL: "http://ya.ru/123",
+					ID:          "100",
+					OriginalURL: "http://ya.ru/123",
 				},
 			},
 			queryString: "/api/shorten",
@@ -318,8 +319,8 @@ func TestService_Post_JSON(t *testing.T) {
 			name: "incorrect url",
 			db: map[string]repository.LinkEntity{
 				"100": {
-					ID:      "100",
-					LongURL: "http://ya.ru/123",
+					ID:          "100",
+					OriginalURL: "http://ya.ru/123",
 				},
 			},
 			queryString: "/api/shorten",
@@ -335,8 +336,8 @@ func TestService_Post_JSON(t *testing.T) {
 			name: "invalid json",
 			db: map[string]repository.LinkEntity{
 				"100": {
-					ID:      "100",
-					LongURL: "http://ya.ru/123",
+					ID:          "100",
+					OriginalURL: "http://ya.ru/123",
 				},
 			},
 			queryString: "/api/shorten",
@@ -352,8 +353,8 @@ func TestService_Post_JSON(t *testing.T) {
 			name: "missing field",
 			db: map[string]repository.LinkEntity{
 				"100": {
-					ID:      "100",
-					LongURL: "http://ya.ru/123",
+					ID:          "100",
+					OriginalURL: "http://ya.ru/123",
 				},
 			},
 			queryString: "/api/shorten",

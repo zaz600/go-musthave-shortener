@@ -50,7 +50,7 @@ func runApp(args []string) (err error) {
 
 	s := shortener.NewService(cfg.BaseURL, shortener.WithRepository(repo))
 
-	repoTmp, _ := repository.NewPgLinksRepository(cfg.DatabaseDSN)
+	repoTmp, err := repository.NewPgLinksRepository(cfg.DatabaseDSN)
 	defer repoTmp.Close()
 	s.RepoTmp = repoTmp
 

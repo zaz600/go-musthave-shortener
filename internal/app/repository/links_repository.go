@@ -11,24 +11,24 @@ const (
 )
 
 type LinkEntity struct {
-	ID      string `json:"id"`
-	LongURL string `json:"long_url"`
-	UID     string `json:"uid,omitempty"`
+	ID          string `json:"id"`
+	OriginalURL string `json:"original_url"`
+	UID         string `json:"uid,omitempty"`
 }
 
-func NewLinkEntity(longURL string, uid string) LinkEntity {
+func NewLinkEntity(originalURL string, uid string) LinkEntity {
 	return LinkEntity{
-		ID:      random.String(8),
-		LongURL: longURL,
-		UID:     uid,
+		ID:          random.String(8),
+		OriginalURL: originalURL,
+		UID:         uid,
 	}
 }
 
 type LinksRepository interface {
 	Get(linkID string) (LinkEntity, error)
 	Put(linkEntity LinkEntity) (string, error)
-	Count() int
-	FindLinksByUID(uuid string) []LinkEntity
+	Count() (int, error)
+	FindLinksByUID(uid string) ([]LinkEntity, error)
 	Status() error
 	Close() error
 }

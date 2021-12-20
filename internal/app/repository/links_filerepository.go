@@ -61,18 +61,18 @@ func (f *FileLinksRepository) Put(linkEntity LinkEntity) (string, error) {
 	return linkEntity.ID, nil
 }
 
-func (f *FileLinksRepository) Count() int {
-	return len(f.cache)
+func (f *FileLinksRepository) Count() (int, error) {
+	return len(f.cache), nil
 }
 
-func (f *FileLinksRepository) FindLinksByUID(uid string) []LinkEntity {
+func (f *FileLinksRepository) FindLinksByUID(uid string) ([]LinkEntity, error) {
 	result := make([]LinkEntity, 0, 100)
 	for _, entity := range f.cache {
 		if entity.UID == uid {
 			result = append(result, entity)
 		}
 	}
-	return result
+	return result, nil
 }
 
 // dump сохраняет длинную ссылку и ее идентификатор в файл
@@ -98,7 +98,8 @@ func (f *FileLinksRepository) loadCache() error {
 		}
 		f.cache[entity.ID] = entity
 	}
-	log.Info().Msgf("load %d records from storage", f.Count())
+	count, _ := f.Count()
+	log.Info().Msgf("load %d records from storage", count)
 	return nil
 }
 

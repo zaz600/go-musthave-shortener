@@ -51,8 +51,8 @@ func NewService(baseURL string, opts ...Option) *Service {
 	s.Use(middleware.Compress(5))
 	s.Use(compress.GzDecompressor)
 
-	s.Get("/{linkID}", s.GetLongURL())
-	s.Post("/", s.SaveLongURL())
+	s.Get("/{linkID}", s.GetOriginalURL())
+	s.Post("/", s.ShortenURL())
 	s.Post("/api/shorten", s.ShortenJSON())
 	s.Get("/user/urls", s.GetUserLinks())
 	s.Get("/ping", s.Ping())
@@ -63,18 +63,18 @@ func (s *Service) shortURL(linkID string) string {
 	return fmt.Sprintf("%s/%s", s.baseURL, linkID)
 }
 
-func (s *Service) GetLongURL() http.HandlerFunc {
+func (s *Service) GetOriginalURL() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		linkID := chi.URLParam(r, "linkID")
 		if linkEntity, err := s.repository.Get(linkID); err == nil {
-			http.Redirect(w, r, linkEntity.LongURL, http.StatusTemporaryRedirect)
+			http.Redirect(w, r, linkEntity.OriginalURL, http.StatusTemporaryRedirect)
 			return
 		}
 		http.Error(w, "url not found", http.StatusBadRequest)
 	}
 }
 
-func (s *Service) SaveLongURL() http.HandlerFunc {
+func (s *Service) ShortenURL() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if strings.TrimPrefix(r.URL.Path, "/") != "" {
 			http.Error(w, "invalid url, use /", http.StatusBadRequest)
@@ -86,9 +86,9 @@ func (s *Service) SaveLongURL() http.HandlerFunc {
 			http.Error(w, "invalid request params", http.StatusBadRequest)
 			return
 		}
-		longURL := string(bytes)
-		if !isValidURL(longURL) {
-			http.Error(w, "invalid url "+longURL, http.StatusBadRequest)
+		originalURL := string(bytes)
+		if !isValidURL(originalURL) {
+			http.Error(w, "invalid url "+originalURL, http.StatusBadRequest)
 			return
 		}
 		uid, err := helper.ExtractUID(r.Cookies())
@@ -96,7 +96,7 @@ func (s *Service) SaveLongURL() http.HandlerFunc {
 			s.logCookieError(r, err)
 			uid = random.UserID()
 		}
-		linkEntity := repository.NewLinkEntity(longURL, uid)
+		linkEntity := repository.NewLinkEntity(originalURL, uid)
 		linkID, err := s.repository.Put(linkEntity)
 		if err != nil {
 			http.Error(w, "invalid request params", http.StatusBadRequest)
@@ -119,8 +119,8 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 			return
 		}
 
-		longURL := request.URL
-		if !isValidURL(longURL) {
+		originalURL := request.URL
+		if !isValidURL(originalURL) {
 			http.Error(w, "invalid url", http.StatusBadRequest)
 			return
 		}
@@ -129,9 +129,10 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 			s.logCookieError(r, err)
 			uid = random.UserID()
 		}
-		linkEntity := repository.NewLinkEntity(longURL, uid)
+		linkEntity := repository.NewLinkEntity(originalURL, uid)
 		linkID, err := s.repository.Put(linkEntity)
 		if err != nil {
+			log.Warn().Err(err).Fields(linkEntity).Msg("")
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
@@ -159,7 +160,12 @@ func (s *Service) GetUserLinks() http.HandlerFunc {
 			http.Error(w, "no links", http.StatusNoContent)
 			return
 		}
-		links := s.repository.FindLinksByUID(uid)
+		links, err := s.repository.FindLinksByUID(uid)
+		if err != nil {
+			log.Warn().Err(err).Str("uid", uid).Msg("")
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
 		if len(links) == 0 {
 			http.Error(w, "no links", http.StatusNoContent)
 			return
@@ -169,7 +175,7 @@ func (s *Service) GetUserLinks() http.HandlerFunc {
 		for _, entity := range links {
 			result = append(result, UserLinksResponseEntry{
 				ShortURL:    s.shortURL(entity.ID),
-				OriginalURL: entity.LongURL,
+				OriginalURL: entity.OriginalURL,
 			})
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -216,11 +222,11 @@ func (s *Service) Shutdown() error {
 }
 
 // isValidURL проверяет адрес на пригодность для сохранения в БД
-func isValidURL(longURL string) bool {
-	if longURL == "" {
+func isValidURL(value string) bool {
+	if value == "" {
 		return false
 	}
-	_, err := url.Parse(longURL)
+	_, err := url.Parse(value)
 
 	return err == nil
 }
