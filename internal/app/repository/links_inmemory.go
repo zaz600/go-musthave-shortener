@@ -41,6 +41,15 @@ func (m InMemoryLinksRepository) Put(linkEntity LinkEntity) (string, error) {
 	return linkEntity.ID, nil
 }
 
+func (m InMemoryLinksRepository) PutBatch(linkEntities []LinkEntity) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, linkEntity := range linkEntities {
+		m.db[linkEntity.ID] = linkEntity
+	}
+	return nil
+}
+
 func (m InMemoryLinksRepository) Count() (int, error) {
 	return len(m.db), nil
 }

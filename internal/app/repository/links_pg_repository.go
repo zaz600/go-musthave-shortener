@@ -44,6 +44,45 @@ func (p *PgLinksRepository) Put(linkEntity LinkEntity) (string, error) {
 	return linkEntity.ID, nil
 }
 
+func (p *PgLinksRepository) PutBatch(linkEntities []LinkEntity) error {
+	batch := make([]LinkEntity, 0, 100)
+	for i, entity := range linkEntities {
+		batch = append(batch, entity)
+		if cap(batch) == len(batch) || i == len(linkEntities)-1 {
+			if err := p.Flush(batch); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (p *PgLinksRepository) Flush(linkEntities []LinkEntity) error {
+	query := `insert into shortener.links(link_id, original_url, uid) values($1, $2, $3)`
+
+	tx, err := p.conn.Begin(context.Background())
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(context.Background()) //nolint:errcheck
+
+	stmt, err := tx.Prepare(context.Background(), "insert link", query)
+	if err != nil {
+		return err
+	}
+	defer p.conn.Deallocate(context.Background(), stmt.Name) //nolint:errcheck
+
+	for _, entity := range linkEntities {
+		if _, err := tx.Exec(context.Background(), stmt.Name, entity.ID, entity.OriginalURL, entity.UID); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(context.Background()); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (p *PgLinksRepository) Count() (int, error) {
 	query := `select count(*) from shortener.links`
 	var count int
