@@ -109,6 +109,7 @@ func TestService_Get(t *testing.T) {
 	}
 }
 
+//nolint:funlen
 func TestService_Post(t *testing.T) {
 	type want struct {
 		code        int
@@ -241,6 +242,44 @@ func TestService_PostMultiple(t *testing.T) {
 	count, err := s.repository.Count()
 	assert.NoError(t, err)
 	assert.Equal(t, 6, count) // 1 + 5
+}
+
+func TestService_PostExist(t *testing.T) {
+	longURL := "http://ya.ru/123"
+	db := map[string]repository.LinkEntity{
+		"100": {
+			ID:          "100",
+			OriginalURL: longURL,
+		},
+	}
+	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(db)))
+	ts := httptest.NewServer(s.Mux)
+	defer ts.Close()
+
+	res, body := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
+
+	assert.Equal(t, http.StatusConflict, res.StatusCode)
+	assert.Equal(t, body, "http://localhost:8080/100")
+}
+
+func TestService_PostJSONExist(t *testing.T) {
+	longURL := "http://ya.ru/123"
+
+	db := map[string]repository.LinkEntity{
+		"100": {
+			ID:          "100",
+			OriginalURL: longURL,
+		},
+	}
+	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(db)))
+	ts := httptest.NewServer(s.Mux)
+	defer ts.Close()
+
+	request := []byte(fmt.Sprintf(`{"url":"%s"}`, longURL))
+	res, body := testRequest(t, ts, "POST", "/api/shorten", bytes.NewReader(request), nil) //nolint:bodyclose
+
+	assert.Equal(t, http.StatusConflict, res.StatusCode)
+	assert.Equal(t, body, `{"result":"http://localhost:8080/100"}`)
 }
 
 func TestService_GetUserLinks(t *testing.T) {
