@@ -281,7 +281,7 @@ func TestService_PostJSONExist(t *testing.T) {
 	defer res.Body.Close()
 
 	assert.Equal(t, http.StatusConflict, res.StatusCode)
-	assert.Equal(t, body, `{"result":"http://localhost:8080/100"}`)
+	assert.JSONEq(t, body, `{"result":"http://localhost:8080/100"}`)
 }
 
 func TestService_GetUserLinks(t *testing.T) {
