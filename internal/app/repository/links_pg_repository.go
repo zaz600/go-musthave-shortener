@@ -2,21 +2,28 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"embed"
 	"time"
 
-	"github.com/jackc/pgx/v4"
+	_ "github.com/jackc/pgx/v4/stdlib" // pgx for database/sql
+	"github.com/pressly/goose/v3"
 )
 
+//go:embed migrations/*.*
+var embedMigrations embed.FS
+
 type PgLinksRepository struct {
-	conn *pgx.Conn
+	db *sql.DB
 }
 
 func NewPgLinksRepository(databaseDSN string) (*PgLinksRepository, error) {
-	conn, err := pgx.Connect(context.Background(), databaseDSN)
+	db, err := sql.Open("pgx", databaseDSN)
 	if err != nil {
 		return nil, err
 	}
-	repo := PgLinksRepository{conn: conn}
+
+	repo := PgLinksRepository{db: db}
 	err = repo.migrate()
 	if err != nil {
 		return nil, err
@@ -27,7 +34,7 @@ func NewPgLinksRepository(databaseDSN string) (*PgLinksRepository, error) {
 func (p *PgLinksRepository) Get(linkID string) (LinkEntity, error) {
 	query := `select uid, original_url, link_id  from shortener.links where link_id = $1`
 	var entity LinkEntity
-	result := p.conn.QueryRow(context.Background(), query, linkID)
+	result := p.db.QueryRowContext(context.Background(), query, linkID)
 	err := result.Scan(&entity.UID, &entity.OriginalURL, &entity.ID)
 	if err != nil {
 		return LinkEntity{}, err
@@ -49,7 +56,7 @@ func (p *PgLinksRepository) PutBatch(linkEntities []LinkEntity) error {
 	for i, entity := range linkEntities {
 		batch = append(batch, entity)
 		if cap(batch) == len(batch) || i == len(linkEntities)-1 {
-			if err := p.Flush(batch); err != nil {
+			if err := p.flush(batch); err != nil {
 				return err
 			}
 		}
@@ -57,27 +64,27 @@ func (p *PgLinksRepository) PutBatch(linkEntities []LinkEntity) error {
 	return nil
 }
 
-func (p *PgLinksRepository) Flush(linkEntities []LinkEntity) error {
+func (p *PgLinksRepository) flush(linkEntities []LinkEntity) error {
 	query := `insert into shortener.links(link_id, original_url, uid) values($1, $2, $3)`
 
-	tx, err := p.conn.Begin(context.Background())
+	tx, err := p.db.Begin()
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.Background()) //nolint:errcheck
+	defer tx.Rollback() //nolint:errcheck
 
-	stmt, err := tx.Prepare(context.Background(), "insert link", query)
+	stmt, err := tx.PrepareContext(context.Background(), query)
 	if err != nil {
 		return err
 	}
-	defer p.conn.Deallocate(context.Background(), stmt.Name) //nolint:errcheck
+	defer stmt.Close() //nolint:errcheck
 
 	for _, entity := range linkEntities {
-		if _, err := tx.Exec(context.Background(), stmt.Name, entity.ID, entity.OriginalURL, entity.UID); err != nil {
+		if _, err := stmt.ExecContext(context.Background(), entity.ID, entity.OriginalURL, entity.UID); err != nil {
 			return err
 		}
 	}
-	if err := tx.Commit(context.Background()); err != nil {
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 	return nil
@@ -86,7 +93,7 @@ func (p *PgLinksRepository) Flush(linkEntities []LinkEntity) error {
 func (p *PgLinksRepository) Count() (int, error) {
 	query := `select count(*) from shortener.links`
 	var count int
-	err := p.conn.QueryRow(context.Background(), query).Scan(&count)
+	err := p.db.QueryRowContext(context.Background(), query).Scan(&count)
 	if err != nil {
 		return 0, err
 	}
@@ -96,7 +103,7 @@ func (p *PgLinksRepository) Count() (int, error) {
 func (p *PgLinksRepository) FindLinksByUID(uid string) ([]LinkEntity, error) {
 	query := `select uid, original_url, link_id  from shortener.links where uid=$1`
 	var result []LinkEntity
-	rows, err := p.conn.Query(context.Background(), query, uid)
+	rows, err := p.db.QueryContext(context.Background(), query, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -118,30 +125,15 @@ func (p *PgLinksRepository) FindLinksByUID(uid string) ([]LinkEntity, error) {
 func (p *PgLinksRepository) Status() error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	return p.conn.Ping(ctx)
+	return p.db.PingContext(ctx)
 }
 
 func (p *PgLinksRepository) Close() error {
-	return p.conn.Close(context.Background())
+	return p.db.Close()
 }
 
 func (p *PgLinksRepository) migrate() error {
-	// TODO нужен отдельный пакет для миграций из sql файлов
-	migration := `
-		CREATE SCHEMA IF NOT EXISTS shortener;
-		-- DROP SCHEMA shortener CASCADE ;
-		-- CREATE SCHEMA shortener;
-		SET SEARCH_PATH TO shortener;
-
-		CREATE TABLE IF NOT EXISTS links(
-  			id serial primary key,
-  			link_id varchar,
-  			original_url varchar,
-  			uid varchar,
-  			created_at TIMESTAMP
-		);
-		ALTER TABLE links ALTER COLUMN created_at SET DEFAULT now();
-		`
-	_, err := p.conn.Exec(context.Background(), migration)
-	return err
+	goose.SetBaseFS(embedMigrations)
+	goose.SetTableName("shortener.goose_db_version")
+	return goose.Up(p.db, "migrations")
 }
