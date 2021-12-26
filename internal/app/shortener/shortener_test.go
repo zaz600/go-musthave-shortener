@@ -257,6 +257,7 @@ func TestService_PostExist(t *testing.T) {
 	defer ts.Close()
 
 	res, body := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
+	defer res.Body.Close()
 
 	assert.Equal(t, http.StatusConflict, res.StatusCode)
 	assert.Equal(t, body, "http://localhost:8080/100")
@@ -277,6 +278,7 @@ func TestService_PostJSONExist(t *testing.T) {
 
 	request := []byte(fmt.Sprintf(`{"url":"%s"}`, longURL))
 	res, body := testRequest(t, ts, "POST", "/api/shorten", bytes.NewReader(request), nil) //nolint:bodyclose
+	defer res.Body.Close()
 
 	assert.Equal(t, http.StatusConflict, res.StatusCode)
 	assert.Equal(t, body, `{"result":"http://localhost:8080/100"}`)
