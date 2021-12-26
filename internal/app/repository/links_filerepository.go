@@ -54,6 +54,12 @@ func (f *FileLinksRepository) Put(linkEntity LinkEntity) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
+	for _, entity := range f.cache {
+		if entity.OriginalURL == linkEntity.OriginalURL {
+			return "", NewLinkExistsError(entity.ID)
+		}
+	}
+
 	f.cache[linkEntity.ID] = linkEntity
 	if err := f.dump(linkEntity); err != nil {
 		return "", err

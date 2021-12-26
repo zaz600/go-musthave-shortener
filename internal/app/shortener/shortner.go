@@ -76,6 +76,8 @@ func (s *Service) GetOriginalURL() http.HandlerFunc {
 
 func (s *Service) ShortenURL() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		statusHeader := http.StatusCreated
+
 		if strings.TrimPrefix(r.URL.Path, "/") != "" {
 			http.Error(w, "invalid url, use /", http.StatusBadRequest)
 			return
@@ -99,18 +101,26 @@ func (s *Service) ShortenURL() http.HandlerFunc {
 		linkEntity := repository.NewLinkEntity(originalURL, uid)
 		linkID, err := s.repository.Put(linkEntity)
 		if err != nil {
-			http.Error(w, "invalid request params", http.StatusBadRequest)
-			return
+			var linkExistsErr *repository.LinkExistsError
+			if errors.As(err, &linkExistsErr) {
+				linkID = linkExistsErr.LinkID
+				statusHeader = http.StatusConflict
+			} else {
+				log.Warn().Err(err).Fields(linkEntity).Msg("")
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
 		}
 		helper.SetUIDCookie(w, uid)
 		w.Header().Set("Content-Type", "text/html")
-		w.WriteHeader(http.StatusCreated)
+		w.WriteHeader(statusHeader)
 		_, _ = fmt.Fprint(w, s.shortURL(linkID))
 	}
 }
 
 func (s *Service) ShortenJSON() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		statusHeader := http.StatusCreated
 		decoder := json.NewDecoder(r.Body)
 		var request ShortenRequest
 		err := decoder.Decode(&request)
@@ -132,9 +142,15 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 		linkEntity := repository.NewLinkEntity(originalURL, uid)
 		linkID, err := s.repository.Put(linkEntity)
 		if err != nil {
-			log.Warn().Err(err).Fields(linkEntity).Msg("")
-			http.Error(w, "internal server error", http.StatusInternalServerError)
-			return
+			var linkExistsErr *repository.LinkExistsError
+			if errors.As(err, &linkExistsErr) {
+				linkID = linkExistsErr.LinkID
+				statusHeader = http.StatusConflict
+			} else {
+				log.Warn().Err(err).Fields(linkEntity).Msg("")
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
 		}
 		resp := ShortenResponse{
 			Result: fmt.Sprintf("%s/%s", s.baseURL, linkID),
@@ -147,7 +163,7 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 		}
 		helper.SetUIDCookie(w, uid)
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
+		w.WriteHeader(statusHeader)
 		_, _ = fmt.Fprint(w, string(data))
 	}
 }

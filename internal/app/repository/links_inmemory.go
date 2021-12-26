@@ -37,6 +37,12 @@ func (m InMemoryLinksRepository) Put(linkEntity LinkEntity) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	for _, entity := range m.db {
+		if entity.OriginalURL == linkEntity.OriginalURL {
+			return "", NewLinkExistsError(entity.ID)
+		}
+	}
+
 	m.db[linkEntity.ID] = linkEntity
 	return linkEntity.ID, nil
 }
