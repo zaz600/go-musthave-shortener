@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"sync"
 )
@@ -21,7 +22,7 @@ func NewInMemoryLinksRepository(db map[string]LinkEntity) InMemoryLinksRepositor
 }
 
 // Get извлекает из хранилища длинный url по идентификатору
-func (m InMemoryLinksRepository) Get(linkID string) (LinkEntity, error) {
+func (m InMemoryLinksRepository) Get(_ context.Context, linkID string) (LinkEntity, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -33,7 +34,7 @@ func (m InMemoryLinksRepository) Get(linkID string) (LinkEntity, error) {
 
 // Put сохраняет длинный url в хранилище и возвращает идентификатор,
 // с которым длинный url можно получить обратно
-func (m InMemoryLinksRepository) Put(linkEntity LinkEntity) (string, error) {
+func (m InMemoryLinksRepository) Put(_ context.Context, linkEntity LinkEntity) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -47,7 +48,7 @@ func (m InMemoryLinksRepository) Put(linkEntity LinkEntity) (string, error) {
 	return linkEntity.ID, nil
 }
 
-func (m InMemoryLinksRepository) PutBatch(linkEntities []LinkEntity) error {
+func (m InMemoryLinksRepository) PutBatch(_ context.Context, linkEntities []LinkEntity) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, linkEntity := range linkEntities {
@@ -56,11 +57,11 @@ func (m InMemoryLinksRepository) PutBatch(linkEntities []LinkEntity) error {
 	return nil
 }
 
-func (m InMemoryLinksRepository) Count() (int, error) {
+func (m InMemoryLinksRepository) Count(_ context.Context) (int, error) {
 	return len(m.db), nil
 }
 
-func (m InMemoryLinksRepository) FindLinksByUID(uid string) ([]LinkEntity, error) {
+func (m InMemoryLinksRepository) FindLinksByUID(_ context.Context, uid string) ([]LinkEntity, error) {
 	result := make([]LinkEntity, 0, 100)
 	for _, entity := range m.db {
 		if entity.UID == uid {
@@ -70,10 +71,10 @@ func (m InMemoryLinksRepository) FindLinksByUID(uid string) ([]LinkEntity, error
 	return result, nil
 }
 
-func (m InMemoryLinksRepository) Status() error {
+func (m InMemoryLinksRepository) Status(_ context.Context) error {
 	return nil
 }
 
-func (m InMemoryLinksRepository) Close() error {
+func (m InMemoryLinksRepository) Close(_ context.Context) error {
 	return nil
 }

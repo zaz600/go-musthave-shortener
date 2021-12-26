@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -19,13 +20,14 @@ func main() {
 
 func CLI(args []string) int {
 	if err := runApp(args); err != nil {
-		fmt.Fprintf(os.Stderr, "Runtime error: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "Runtime error: %v\n", err)
 		return 1
 	}
 	return 0
 }
 
 func runApp(args []string) (err error) {
+	ctx := context.Background()
 	cfg := config.GetConfig(args)
 	log.Info().Msgf("app cfg: %+v", cfg)
 
@@ -33,13 +35,13 @@ func runApp(args []string) (err error) {
 	switch cfg.GetRepositoryType() {
 	case repository.FileRepo:
 		log.Info().Msgf("FileRepository %s", cfg.FileStoragePath)
-		repo, err = repository.NewFileLinksRepository(cfg.FileStoragePath)
+		repo, err = repository.NewFileLinksRepository(ctx, cfg.FileStoragePath)
 		if err != nil {
 			return err
 		}
 	case repository.DatabaseRepo:
 		log.Info().Msg("DatabaseRepo")
-		repo, err = repository.NewPgLinksRepository(cfg.DatabaseDSN)
+		repo, err = repository.NewPgLinksRepository(ctx, cfg.DatabaseDSN)
 		if err != nil {
 			return err
 		}
@@ -49,6 +51,8 @@ func runApp(args []string) (err error) {
 	}
 
 	s := shortener.NewService(cfg.BaseURL, shortener.WithRepository(repo))
-	defer s.Shutdown()
+	defer func(s *shortener.Service, ctx context.Context) {
+		_ = s.Shutdown(ctx)
+	}(s, context.Background())
 	return http.ListenAndServe(cfg.ServerAddress, s)
 }

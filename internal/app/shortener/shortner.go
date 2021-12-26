@@ -1,6 +1,7 @@
 package shortener
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -66,7 +67,7 @@ func (s *Service) shortURL(linkID string) string {
 func (s *Service) GetOriginalURL() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		linkID := chi.URLParam(r, "linkID")
-		if linkEntity, err := s.repository.Get(linkID); err == nil {
+		if linkEntity, err := s.repository.Get(r.Context(), linkID); err == nil {
 			http.Redirect(w, r, linkEntity.OriginalURL, http.StatusTemporaryRedirect)
 			return
 		}
@@ -99,7 +100,7 @@ func (s *Service) ShortenURL() http.HandlerFunc {
 			uid = random.UserID()
 		}
 		linkEntity := repository.NewLinkEntity(originalURL, uid)
-		linkID, err := s.repository.Put(linkEntity)
+		linkID, err := s.repository.Put(r.Context(), linkEntity)
 		if err != nil {
 			var linkExistsErr *repository.LinkExistsError
 			if errors.As(err, &linkExistsErr) {
@@ -140,7 +141,7 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 			uid = random.UserID()
 		}
 		linkEntity := repository.NewLinkEntity(originalURL, uid)
-		linkID, err := s.repository.Put(linkEntity)
+		linkID, err := s.repository.Put(r.Context(), linkEntity)
 		if err != nil {
 			var linkExistsErr *repository.LinkExistsError
 			if errors.As(err, &linkExistsErr) {
@@ -200,7 +201,7 @@ func (s *Service) ShortenBatch() http.HandlerFunc {
 		// Сейчас возможна ситуация, когда ошибка произошла на последней записи из пачки,
 		// мы вернем ошибку, хотя в бд будут вставлены все записи, кроме последней
 		// Нужно уточнить ТЗ :)
-		err = s.repository.PutBatch(linkEntities)
+		err = s.repository.PutBatch(r.Context(), linkEntities)
 		if err != nil {
 			log.Warn().Err(err).Str("uid", uid).Msg("")
 			http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -236,7 +237,7 @@ func (s *Service) GetUserLinks() http.HandlerFunc {
 			http.Error(w, "no links", http.StatusNoContent)
 			return
 		}
-		links, err := s.repository.FindLinksByUID(uid)
+		links, err := s.repository.FindLinksByUID(r.Context(), uid)
 		if err != nil {
 			log.Warn().Err(err).Str("uid", uid).Msg("")
 			http.Error(w, "internal error", http.StatusInternalServerError)
@@ -267,7 +268,7 @@ func (s *Service) GetUserLinks() http.HandlerFunc {
 
 func (s *Service) Ping() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		err := s.repository.Status()
+		err := s.repository.Status(r.Context())
 		if err != nil {
 			http.Error(w, "pg connection error", http.StatusInternalServerError)
 			return
@@ -294,8 +295,8 @@ func (s *Service) logCookieError(r *http.Request, err error) {
 	}
 }
 
-func (s *Service) Shutdown() error {
-	return s.repository.Close()
+func (s *Service) Shutdown(ctx context.Context) error {
+	return s.repository.Close(ctx)
 }
 
 // isValidURL проверяет адрес на пригодность для сохранения в БД

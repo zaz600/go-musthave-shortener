@@ -1,6 +1,10 @@
 package repository
 
-import "github.com/zaz600/go-musthave-shortener/internal/random"
+import (
+	"context"
+
+	"github.com/zaz600/go-musthave-shortener/internal/random"
+)
 
 type RepoType int
 
@@ -26,11 +30,11 @@ func NewLinkEntity(originalURL string, uid string) LinkEntity {
 }
 
 type LinksRepository interface {
-	Get(linkID string) (LinkEntity, error)
-	Put(linkEntity LinkEntity) (string, error)
-	PutBatch(linkEntities []LinkEntity) error
-	Count() (int, error)
-	FindLinksByUID(uid string) ([]LinkEntity, error)
-	Status() error
-	Close() error
+	Get(ctx context.Context, linkID string) (LinkEntity, error)
+	Put(ctx context.Context, linkEntity LinkEntity) (string, error)
+	PutBatch(ctx context.Context, linkEntities []LinkEntity) error
+	Count(ctx context.Context) (int, error)
+	FindLinksByUID(ctx context.Context, uid string) ([]LinkEntity, error)
+	Status(ctx context.Context) error
+	Close(ctx context.Context) error
 }

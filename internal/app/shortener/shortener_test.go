@@ -2,6 +2,7 @@ package shortener
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -239,7 +240,7 @@ func TestService_PostMultiple(t *testing.T) {
 		res, _ := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
 		res.Body.Close()
 	}
-	count, err := s.repository.Count()
+	count, err := s.repository.Count(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, 6, count) // 1 + 5
 }

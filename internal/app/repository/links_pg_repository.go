@@ -11,23 +11,23 @@ type PgLinksRepository struct {
 	conn *pgx.Conn
 }
 
-func NewPgLinksRepository(databaseDSN string) (*PgLinksRepository, error) {
+func NewPgLinksRepository(ctx context.Context, databaseDSN string) (*PgLinksRepository, error) {
 	conn, err := pgx.Connect(context.Background(), databaseDSN)
 	if err != nil {
 		return nil, err
 	}
 	repo := PgLinksRepository{conn: conn}
-	err = repo.migrate()
+	err = repo.migrate(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &repo, nil
 }
 
-func (p *PgLinksRepository) Get(linkID string) (LinkEntity, error) {
+func (p *PgLinksRepository) Get(ctx context.Context, linkID string) (LinkEntity, error) {
 	query := `select uid, original_url, link_id  from shortener.links where link_id = $1`
 	var entity LinkEntity
-	result := p.conn.QueryRow(context.Background(), query, linkID)
+	result := p.conn.QueryRow(ctx, query, linkID)
 	err := result.Scan(&entity.UID, &entity.OriginalURL, &entity.ID)
 	if err != nil {
 		return LinkEntity{}, err
@@ -36,7 +36,7 @@ func (p *PgLinksRepository) Get(linkID string) (LinkEntity, error) {
 }
 
 // Put сохраняет ссылку в БД. Если оригинальная ссылка уже есть среди сокращенных, возвращает ошибку LinkExistsError
-func (p *PgLinksRepository) Put(linkEntity LinkEntity) (string, error) {
+func (p *PgLinksRepository) Put(ctx context.Context, linkEntity LinkEntity) (string, error) {
 	query := `
 WITH new_link AS (
     INSERT INTO shortener.links(link_id, original_url, uid) VALUES ($1, $2, $3)
@@ -47,7 +47,7 @@ WITH new_link AS (
     (SELECT link_id FROM shortener.links WHERE original_url = $2)
 );`
 	var linkID string
-	err := p.conn.QueryRow(context.Background(), query, linkEntity.ID, linkEntity.OriginalURL, linkEntity.UID).Scan(&linkID)
+	err := p.conn.QueryRow(ctx, query, linkEntity.ID, linkEntity.OriginalURL, linkEntity.UID).Scan(&linkID)
 	if err != nil {
 		return "", err
 	}
@@ -59,12 +59,12 @@ WITH new_link AS (
 	return linkID, nil
 }
 
-func (p *PgLinksRepository) PutBatch(linkEntities []LinkEntity) error {
+func (p *PgLinksRepository) PutBatch(ctx context.Context, linkEntities []LinkEntity) error {
 	batch := make([]LinkEntity, 0, 100)
 	for i, entity := range linkEntities {
 		batch = append(batch, entity)
 		if cap(batch) == len(batch) || i == len(linkEntities)-1 {
-			if err := p.Flush(batch); err != nil {
+			if err := p.Flush(ctx, batch); err != nil {
 				return err
 			}
 		}
@@ -72,46 +72,46 @@ func (p *PgLinksRepository) PutBatch(linkEntities []LinkEntity) error {
 	return nil
 }
 
-func (p *PgLinksRepository) Flush(linkEntities []LinkEntity) error {
+func (p *PgLinksRepository) Flush(ctx context.Context, linkEntities []LinkEntity) error {
 	query := `insert into shortener.links(link_id, original_url, uid) values($1, $2, $3)`
 
-	tx, err := p.conn.Begin(context.Background())
+	tx, err := p.conn.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.Background()) //nolint:errcheck
+	defer tx.Rollback(ctx) //nolint:errcheck
 
-	stmt, err := tx.Prepare(context.Background(), "insert link", query)
+	stmt, err := tx.Prepare(ctx, "insert link", query)
 	if err != nil {
 		return err
 	}
-	defer p.conn.Deallocate(context.Background(), stmt.Name) //nolint:errcheck
+	defer p.conn.Deallocate(ctx, stmt.Name) //nolint:errcheck
 
 	for _, entity := range linkEntities {
-		if _, err := tx.Exec(context.Background(), stmt.Name, entity.ID, entity.OriginalURL, entity.UID); err != nil {
+		if _, err := tx.Exec(ctx, stmt.Name, entity.ID, entity.OriginalURL, entity.UID); err != nil {
 			return err
 		}
 	}
-	if err := tx.Commit(context.Background()); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *PgLinksRepository) Count() (int, error) {
+func (p *PgLinksRepository) Count(ctx context.Context) (int, error) {
 	query := `select count(*) from shortener.links`
 	var count int
-	err := p.conn.QueryRow(context.Background(), query).Scan(&count)
+	err := p.conn.QueryRow(ctx, query).Scan(&count)
 	if err != nil {
 		return 0, err
 	}
 	return count, nil
 }
 
-func (p *PgLinksRepository) FindLinksByUID(uid string) ([]LinkEntity, error) {
+func (p *PgLinksRepository) FindLinksByUID(ctx context.Context, uid string) ([]LinkEntity, error) {
 	query := `select uid, original_url, link_id  from shortener.links where uid=$1`
 	var result []LinkEntity
-	rows, err := p.conn.Query(context.Background(), query, uid)
+	rows, err := p.conn.Query(ctx, query, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -130,17 +130,17 @@ func (p *PgLinksRepository) FindLinksByUID(uid string) ([]LinkEntity, error) {
 	return result, nil
 }
 
-func (p *PgLinksRepository) Status() error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+func (p *PgLinksRepository) Status(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	return p.conn.Ping(ctx)
 }
 
-func (p *PgLinksRepository) Close() error {
-	return p.conn.Close(context.Background())
+func (p *PgLinksRepository) Close(ctx context.Context) error {
+	return p.conn.Close(ctx)
 }
 
-func (p *PgLinksRepository) migrate() error {
+func (p *PgLinksRepository) migrate(ctx context.Context) error {
 	// TODO нужен отдельный пакет для миграций из sql файлов, но с гусем падают теты в PR по дедлайну доступности порта
 	migration := `
 		CREATE SCHEMA IF NOT EXISTS shortener;
@@ -158,6 +158,6 @@ func (p *PgLinksRepository) migrate() error {
 		ALTER TABLE links ALTER COLUMN created_at SET DEFAULT now();
 		CREATE UNIQUE INDEX IF NOT EXISTS original_url_idx ON links USING btree (original_url);
 		`
-	_, err := p.conn.Exec(context.Background(), migration)
+	_, err := p.conn.Exec(ctx, migration)
 	return err
 }
