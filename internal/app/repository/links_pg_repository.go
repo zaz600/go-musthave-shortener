@@ -64,7 +64,7 @@ func (p *PgLinksRepository) PutBatch(ctx context.Context, linkEntities []LinkEnt
 	for i, entity := range linkEntities {
 		batch = append(batch, entity)
 		if cap(batch) == len(batch) || i == len(linkEntities)-1 {
-			if err := p.Flush(ctx, batch); err != nil {
+			if err := p.flush(ctx, batch); err != nil {
 				return err
 			}
 		}
@@ -72,7 +72,7 @@ func (p *PgLinksRepository) PutBatch(ctx context.Context, linkEntities []LinkEnt
 	return nil
 }
 
-func (p *PgLinksRepository) Flush(ctx context.Context, linkEntities []LinkEntity) error {
+func (p *PgLinksRepository) flush(ctx context.Context, linkEntities []LinkEntity) error {
 	query := `insert into shortener.links(link_id, original_url, uid) values($1, $2, $3)`
 
 	tx, err := p.conn.Begin(ctx)
