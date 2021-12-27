@@ -113,9 +113,7 @@ func (s *Service) ShortenURL() http.HandlerFunc {
 			}
 		}
 		helper.SetUIDCookie(w, uid)
-		w.Header().Set("Content-Type", "text/html")
-		w.WriteHeader(statusHeader)
-		_, _ = fmt.Fprint(w, s.shortURL(linkID))
+		writeAnswer(w, "text/html", statusHeader, s.shortURL(linkID))
 	}
 }
 
@@ -163,9 +161,7 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 			return
 		}
 		helper.SetUIDCookie(w, uid)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(statusHeader)
-		_, _ = fmt.Fprint(w, string(data))
+		writeAnswer(w, "application/json", statusHeader, string(data))
 	}
 }
 
@@ -223,9 +219,7 @@ func (s *Service) ShortenBatch() http.HandlerFunc {
 		}
 
 		helper.SetUIDCookie(w, uid)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		_, _ = fmt.Fprint(w, string(data))
+		writeAnswer(w, "application/json", http.StatusCreated, string(data))
 	}
 }
 
@@ -255,14 +249,12 @@ func (s *Service) GetUserLinks() http.HandlerFunc {
 				OriginalURL: entity.OriginalURL,
 			})
 		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
 		data, err := json.Marshal(result)
 		if err != nil {
 			http.Error(w, "no links", http.StatusNoContent)
 			return
 		}
-		_, _ = fmt.Fprint(w, string(data))
+		writeAnswer(w, "application/json", http.StatusOK, string(data))
 	}
 }
 
@@ -273,9 +265,7 @@ func (s *Service) Ping() http.HandlerFunc {
 			http.Error(w, "pg connection error", http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = fmt.Fprint(w, "connected")
+		writeAnswer(w, "application/json", http.StatusOK, "connected")
 	}
 }
 
@@ -307,4 +297,10 @@ func isValidURL(value string) bool {
 	_, err := url.Parse(value)
 
 	return err == nil
+}
+
+func writeAnswer(w http.ResponseWriter, contentType string, statusCode int, data interface{}) {
+	w.Header().Set("Content-Type", contentType)
+	w.WriteHeader(statusCode)
+	_, _ = fmt.Fprint(w, data)
 }
