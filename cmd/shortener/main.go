@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 
@@ -20,7 +19,7 @@ func main() {
 
 func CLI(args []string) int {
 	if err := runApp(args); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Runtime error: %v\n", err)
+		log.Error().Err(err).Msgf("Runtime error")
 		return 1
 	}
 	return 0
