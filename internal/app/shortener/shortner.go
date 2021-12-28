@@ -103,14 +103,13 @@ func (s *Service) ShortenURL() http.HandlerFunc {
 		linkID, err := s.repository.Put(r.Context(), linkEntity)
 		if err != nil {
 			var linkExistsErr *repository.LinkExistsError
-			if errors.As(err, &linkExistsErr) {
-				linkID = linkExistsErr.LinkID
-				statusHeader = http.StatusConflict
-			} else {
+			if !errors.As(err, &linkExistsErr) {
 				log.Warn().Err(err).Fields(linkEntity).Msg("")
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return
 			}
+			linkID = linkExistsErr.LinkID
+			statusHeader = http.StatusConflict
 		}
 		helper.SetUIDCookie(w, uid)
 		writeAnswer(w, "text/html", statusHeader, s.shortURL(linkID))
