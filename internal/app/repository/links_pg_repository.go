@@ -12,7 +12,7 @@ type PgLinksRepository struct {
 }
 
 func NewPgLinksRepository(ctx context.Context, databaseDSN string) (*PgLinksRepository, error) {
-	conn, err := pgx.Connect(context.Background(), databaseDSN)
+	conn, err := pgx.Connect(ctx, databaseDSN)
 	if err != nil {
 		return nil, err
 	}
