@@ -4,11 +4,13 @@ import (
 	"context"
 	"time"
 
+	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
 )
 
 type PgLinksRepository struct {
-	conn *pgx.Conn
+	conn           *pgx.Conn
+	insertLinkStmt *pgconn.StatementDescription
 }
 
 func NewPgLinksRepository(ctx context.Context, databaseDSN string) (*PgLinksRepository, error) {
@@ -16,7 +18,17 @@ func NewPgLinksRepository(ctx context.Context, databaseDSN string) (*PgLinksRepo
 	if err != nil {
 		return nil, err
 	}
-	repo := PgLinksRepository{conn: conn}
+	query := `insert into shortener.links(link_id, original_url, uid) values($1, $2, $3)`
+	ctx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	stmt, err := conn.Prepare(ctx, "insert link", query)
+	if err != nil {
+		return nil, err
+	}
+	repo := PgLinksRepository{
+		conn:           conn,
+		insertLinkStmt: stmt,
+	}
 	err = repo.migrate(ctx)
 	if err != nil {
 		return nil, err
@@ -77,7 +89,6 @@ func (p *PgLinksRepository) PutBatch(ctx context.Context, linkEntities []LinkEnt
 }
 
 func (p *PgLinksRepository) flush(ctx context.Context, linkEntities []LinkEntity) error {
-	query := `insert into shortener.links(link_id, original_url, uid) values($1, $2, $3)`
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 
@@ -87,18 +98,12 @@ func (p *PgLinksRepository) flush(ctx context.Context, linkEntities []LinkEntity
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
-	stmt, err := tx.Prepare(ctx, "insert link", query)
-	if err != nil {
-		return err
-	}
-	defer p.conn.Deallocate(ctx, stmt.Name) //nolint:errcheck
-
 	for _, entity := range linkEntities {
-		if _, err := tx.Exec(ctx, stmt.Name, entity.ID, entity.OriginalURL, entity.UID); err != nil {
+		if _, err = tx.Exec(ctx, p.insertLinkStmt.Name, entity.ID, entity.OriginalURL, entity.UID); err != nil {
 			return err
 		}
 	}
-	if err := tx.Commit(ctx); err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		return err
 	}
 	return nil
@@ -151,6 +156,7 @@ func (p *PgLinksRepository) Status(ctx context.Context) error {
 func (p *PgLinksRepository) Close(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
+	_ = p.conn.Deallocate(ctx, p.insertLinkStmt.Name)
 	return p.conn.Close(ctx)
 }
 
