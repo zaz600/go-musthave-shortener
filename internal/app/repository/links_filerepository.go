@@ -21,7 +21,7 @@ type FileLinksRepository struct {
 }
 
 func NewFileLinksRepository(ctx context.Context, path string) (*FileLinksRepository, error) {
-	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0777)
+	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		return nil, err
 	}
