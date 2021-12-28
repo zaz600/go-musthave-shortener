@@ -32,6 +32,9 @@ func (b *BatchService) Add(ctx context.Context, e LinkEntity) error {
 }
 
 func (b *BatchService) Flush(ctx context.Context) error {
+	if len(b.buffer) == 0 {
+		return nil
+	}
 	err := b.repository.PutBatch(ctx, b.buffer)
 	if err != nil {
 		return err

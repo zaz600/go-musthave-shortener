@@ -183,8 +183,6 @@ func (s *Service) ShortenBatch() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 		defer cancel()
 		batch := repository.NewBatchService(100, s.repository)
-		defer batch.Flush(ctx)
-
 		linkEntities := make([]repository.LinkEntity, 0, len(request))
 		for _, item := range request {
 			if !isValidURL(item.URL) {
@@ -201,6 +199,12 @@ func (s *Service) ShortenBatch() http.HandlerFunc {
 				return
 			}
 			linkEntities = append(linkEntities, entity)
+		}
+		err = batch.Flush(ctx)
+		if err != nil {
+			log.Warn().Err(err).Str("uid", uid).Msg("")
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
 		}
 
 		var resp ShortenBatchResponse
