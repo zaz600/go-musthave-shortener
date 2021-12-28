@@ -100,7 +100,7 @@ func (s *Service) ShortenURL() http.HandlerFunc {
 			uid = random.UserID()
 		}
 		linkEntity := repository.NewLinkEntity(originalURL, uid)
-		_, err = s.repository.Put(r.Context(), linkEntity)
+		_, err = s.repository.PutIfAbsent(r.Context(), linkEntity)
 		if err != nil {
 			var linkExistsErr *repository.LinkExistsError
 			if !errors.As(err, &linkExistsErr) {
@@ -138,7 +138,7 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 			uid = random.UserID()
 		}
 		linkEntity := repository.NewLinkEntity(originalURL, uid)
-		_, err = s.repository.Put(r.Context(), linkEntity)
+		_, err = s.repository.PutIfAbsent(r.Context(), linkEntity)
 		if err != nil {
 			var linkExistsErr *repository.LinkExistsError
 			if !errors.As(err, &linkExistsErr) {

@@ -36,6 +36,7 @@ func NewPgLinksRepository(ctx context.Context, databaseDSN string) (*PgLinksRepo
 	return &repo, nil
 }
 
+// Get достает по linkID из БД информацию по сокращенной ссылке LinkEntity
 func (p *PgLinksRepository) Get(ctx context.Context, linkID string) (LinkEntity, error) {
 	query := `select uid, original_url, link_id  from shortener.links where link_id = $1`
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
@@ -49,8 +50,9 @@ func (p *PgLinksRepository) Get(ctx context.Context, linkID string) (LinkEntity,
 	return entity, nil
 }
 
-// Put сохраняет ссылку в БД. Если оригинальная ссылка уже есть среди сокращенных, возвращает ошибку LinkExistsError
-func (p *PgLinksRepository) Put(ctx context.Context, linkEntity LinkEntity) (LinkEntity, error) {
+// PutIfAbsent сохраняет в БД длинную ссылку, если такой там еще нет.
+// Если длинная ссылка есть в БД, выбрасывает исключение LinkExistsError с идентификатором ее короткой ссылки.
+func (p *PgLinksRepository) PutIfAbsent(ctx context.Context, linkEntity LinkEntity) (LinkEntity, error) {
 	query := `
 WITH new_link AS (
     INSERT INTO shortener.links(link_id, original_url, uid) VALUES ($1, $2, $3)
@@ -75,6 +77,7 @@ WITH new_link AS (
 	return linkEntity, nil
 }
 
+// PutBatch сохраняет в БД список сокращенных ссылок. Все ссылки записываются в одной транзакции.
 func (p *PgLinksRepository) PutBatch(ctx context.Context, linkEntities []LinkEntity) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
@@ -96,6 +99,7 @@ func (p *PgLinksRepository) PutBatch(ctx context.Context, linkEntities []LinkEnt
 	return nil
 }
 
+// Count возвращает количество записей в репозитории.
 func (p *PgLinksRepository) Count(ctx context.Context) (int, error) {
 	query := `select count(*) from shortener.links`
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
@@ -109,6 +113,7 @@ func (p *PgLinksRepository) Count(ctx context.Context) (int, error) {
 	return count, nil
 }
 
+// FindLinksByUID возвращает ссылки по идентификатору пользователя
 func (p *PgLinksRepository) FindLinksByUID(ctx context.Context, uid string) ([]LinkEntity, error) {
 	query := `select uid, original_url, link_id  from shortener.links where uid=$1`
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
@@ -134,12 +139,14 @@ func (p *PgLinksRepository) FindLinksByUID(ctx context.Context, uid string) ([]L
 	return result, nil
 }
 
+// Status статус подключения к хранилищу
 func (p *PgLinksRepository) Status(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	return p.conn.Ping(ctx)
 }
 
+// Close закрывает, все, что надо закрыть
 func (p *PgLinksRepository) Close(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()

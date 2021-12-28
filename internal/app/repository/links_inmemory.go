@@ -21,7 +21,7 @@ func NewInMemoryLinksRepository(db map[string]LinkEntity) InMemoryLinksRepositor
 	}
 }
 
-// Get извлекает из хранилища длинный url по идентификатору
+// Get достает по linkID из репозитория информацию по сокращенной ссылке LinkEntity
 func (m InMemoryLinksRepository) Get(_ context.Context, linkID string) (LinkEntity, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -32,9 +32,9 @@ func (m InMemoryLinksRepository) Get(_ context.Context, linkID string) (LinkEnti
 	return LinkEntity{}, fmt.Errorf("link with id '%s' not found", linkID)
 }
 
-// Put сохраняет длинный url в хранилище и возвращает идентификатор,
-// с которым длинный url можно получить обратно
-func (m InMemoryLinksRepository) Put(_ context.Context, linkEntity LinkEntity) (LinkEntity, error) {
+// PutIfAbsent сохраняет в БД длинную ссылку, если такой там еще нет.
+// Если длинная ссылка есть в БД, выбрасывает исключение LinkExistsError с идентификатором ее короткой ссылки.
+func (m InMemoryLinksRepository) PutIfAbsent(_ context.Context, linkEntity LinkEntity) (LinkEntity, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -48,6 +48,7 @@ func (m InMemoryLinksRepository) Put(_ context.Context, linkEntity LinkEntity) (
 	return linkEntity, nil
 }
 
+// PutBatch сохраняет в хранилище список сокращенных ссылок. Все ссылки записываются в одной транзакции.
 func (m InMemoryLinksRepository) PutBatch(_ context.Context, linkEntities []LinkEntity) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -57,10 +58,12 @@ func (m InMemoryLinksRepository) PutBatch(_ context.Context, linkEntities []Link
 	return nil
 }
 
+// Count возвращает количество записей в репозитории.
 func (m InMemoryLinksRepository) Count(_ context.Context) (int, error) {
 	return len(m.db), nil
 }
 
+// FindLinksByUID возвращает ссылки по идентификатору пользователя
 func (m InMemoryLinksRepository) FindLinksByUID(_ context.Context, uid string) ([]LinkEntity, error) {
 	result := make([]LinkEntity, 0, 100)
 	for _, entity := range m.db {
@@ -71,10 +74,12 @@ func (m InMemoryLinksRepository) FindLinksByUID(_ context.Context, uid string) (
 	return result, nil
 }
 
+// Status статус подключения к хранилищу
 func (m InMemoryLinksRepository) Status(_ context.Context) error {
 	return nil
 }
 
+// Close закрывает, все, что надо закрыть
 func (m InMemoryLinksRepository) Close(_ context.Context) error {
 	return nil
 }

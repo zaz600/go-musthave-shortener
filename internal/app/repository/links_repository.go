@@ -24,12 +24,26 @@ func NewLinkEntity(originalURL string, uid string) LinkEntity {
 }
 
 type LinksRepository interface {
+	// Get достает по linkID из репозитория информацию по сокращенной ссылке LinkEntity
 	Get(ctx context.Context, linkID string) (LinkEntity, error)
-	Put(ctx context.Context, linkEntity LinkEntity) (LinkEntity, error)
+
+	// PutIfAbsent сохраняет в БД длинную ссылку, если такой там еще нет.
+	// Если длинная ссылка есть в БД, выбрасывает исключение LinkExistsError с идентификатором ее короткой ссылки.
+	PutIfAbsent(ctx context.Context, linkEntity LinkEntity) (LinkEntity, error)
+
+	// PutBatch сохраняет в хранилище список сокращенных ссылок. Все ссылки записываются в одной транзакции.
 	PutBatch(ctx context.Context, linkEntities []LinkEntity) error
+
+	// Count возвращает количество записей в репозитории.
 	Count(ctx context.Context) (int, error)
+
+	// FindLinksByUID возвращает ссылки по идентификатору пользователя
 	FindLinksByUID(ctx context.Context, uid string) ([]LinkEntity, error)
+
+	// Status статус подключения к хранилищу
 	Status(ctx context.Context) error
+
+	// Close закрывает, все, что надо закрыть
 	Close(ctx context.Context) error
 }
 

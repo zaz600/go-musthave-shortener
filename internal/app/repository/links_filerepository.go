@@ -41,6 +41,7 @@ func NewFileLinksRepository(ctx context.Context, path string) (*FileLinksReposit
 	return repo, nil
 }
 
+// Get достает по linkID из репозитория информацию по сокращенной ссылке LinkEntity
 func (f *FileLinksRepository) Get(_ context.Context, linkID string) (LinkEntity, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
@@ -51,7 +52,9 @@ func (f *FileLinksRepository) Get(_ context.Context, linkID string) (LinkEntity,
 	return LinkEntity{}, fmt.Errorf("link with id '%s' not found", linkID)
 }
 
-func (f *FileLinksRepository) Put(_ context.Context, linkEntity LinkEntity) (LinkEntity, error) {
+// PutIfAbsent сохраняет в БД длинную ссылку, если такой там еще нет.
+// Если длинная ссылка есть в БД, выбрасывает исключение LinkExistsError с идентификатором ее короткой ссылки.
+func (f *FileLinksRepository) PutIfAbsent(_ context.Context, linkEntity LinkEntity) (LinkEntity, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -68,6 +71,7 @@ func (f *FileLinksRepository) Put(_ context.Context, linkEntity LinkEntity) (Lin
 	return linkEntity, nil
 }
 
+// PutBatch сохраняет в хранилище список сокращенных ссылок. Все ссылки записываются в одной транзакции.
 func (f *FileLinksRepository) PutBatch(_ context.Context, linkEntities []LinkEntity) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -81,10 +85,12 @@ func (f *FileLinksRepository) PutBatch(_ context.Context, linkEntities []LinkEnt
 	return nil
 }
 
+// Count возвращает количество записей в репозитории.
 func (f *FileLinksRepository) Count(_ context.Context) (int, error) {
 	return len(f.cache), nil
 }
 
+// FindLinksByUID возвращает ссылки по идентификатору пользователя
 func (f *FileLinksRepository) FindLinksByUID(_ context.Context, uid string) ([]LinkEntity, error) {
 	result := make([]LinkEntity, 0, 100)
 	for _, entity := range f.cache {
@@ -125,10 +131,12 @@ func (f *FileLinksRepository) loadCache(ctx context.Context) error {
 	return nil
 }
 
+// Status статус подключения к хранилищу
 func (f *FileLinksRepository) Status(_ context.Context) error {
 	return nil
 }
 
+// Close закрывает, все, что надо закрыть
 func (f *FileLinksRepository) Close(_ context.Context) error {
 	return f.file.Close()
 }
