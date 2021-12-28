@@ -21,7 +21,7 @@ func NewBatch(batchSize int, repository LinksRepository) *Batch {
 	}
 }
 
-func (b Batch) Add(ctx context.Context, e LinkEntity) error {
+func (b *Batch) Add(ctx context.Context, e LinkEntity) error {
 	b.buffer = append(b.buffer, e)
 	if cap(b.buffer) == len(b.buffer) {
 		if err := b.Flush(ctx); err != nil {
@@ -31,7 +31,7 @@ func (b Batch) Add(ctx context.Context, e LinkEntity) error {
 	return nil
 }
 
-func (b Batch) Flush(ctx context.Context) error {
+func (b *Batch) Flush(ctx context.Context) error {
 	err := b.repository.PutBatch(ctx, b.buffer)
 	if err != nil {
 		return err
