@@ -37,8 +37,8 @@ func runApp(args []string) (err error) {
 	}
 
 	s := shortener.NewService(cfg.BaseURL, shortener.WithRepository(repo))
-	defer func(s *shortener.Service, ctx context.Context) {
+	defer func(ctx context.Context, s *shortener.Service) {
 		_ = s.Shutdown(ctx)
-	}(s, ctx)
+	}(ctx, s)
 	return http.ListenAndServe(cfg.ServerAddress, s)
 }
