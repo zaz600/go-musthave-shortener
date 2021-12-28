@@ -31,28 +31,14 @@ func runApp(args []string) (err error) {
 	cfg := config.GetConfig(args)
 	log.Info().Msgf("app cfg: %+v", cfg)
 
-	var repo repository.LinksRepository
-	switch cfg.GetRepositoryType() {
-	case repository.FileRepo:
-		log.Info().Msgf("FileRepository %s", cfg.FileStoragePath)
-		repo, err = repository.NewFileLinksRepository(ctx, cfg.FileStoragePath)
-		if err != nil {
-			return err
-		}
-	case repository.DatabaseRepo:
-		log.Info().Msg("DatabaseRepo")
-		repo, err = repository.NewPgLinksRepository(ctx, cfg.DatabaseDSN)
-		if err != nil {
-			return err
-		}
-	default:
-		log.Info().Msg("MemoryRepository")
-		repo = repository.NewInMemoryLinksRepository(nil)
+	repo, err := repository.NewRepository(ctx, cfg)
+	if err != nil {
+		return err
 	}
 
 	s := shortener.NewService(cfg.BaseURL, shortener.WithRepository(repo))
 	defer func(s *shortener.Service, ctx context.Context) {
 		_ = s.Shutdown(ctx)
-	}(s, context.Background())
+	}(s, ctx)
 	return http.ListenAndServe(cfg.ServerAddress, s)
 }

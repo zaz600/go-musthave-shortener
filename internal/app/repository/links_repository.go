@@ -3,15 +3,9 @@ package repository
 import (
 	"context"
 
+	"github.com/rs/zerolog/log"
+	"github.com/zaz600/go-musthave-shortener/internal/config"
 	"github.com/zaz600/go-musthave-shortener/internal/random"
-)
-
-type RepoType int
-
-const (
-	MemoryRepo RepoType = iota
-	FileRepo
-	DatabaseRepo
 )
 
 type LinkEntity struct {
@@ -37,4 +31,28 @@ type LinksRepository interface {
 	FindLinksByUID(ctx context.Context, uid string) ([]LinkEntity, error)
 	Status(ctx context.Context) error
 	Close(ctx context.Context) error
+}
+
+func NewRepository(ctx context.Context, cfg *config.ShortenConfig) (LinksRepository, error) {
+	var repo LinksRepository
+	var err error
+	switch cfg.GetRepositoryType() {
+	case config.FileRepo:
+		log.Info().Msgf("FileRepository %s", cfg.FileStoragePath)
+		repo, err = NewFileLinksRepository(ctx, cfg.FileStoragePath)
+		if err != nil {
+			return nil, err
+		}
+	case config.DatabaseRepo:
+		log.Info().Msg("DatabaseRepo")
+		repo, err = NewPgLinksRepository(ctx, cfg.DatabaseDSN)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		log.Info().Msg("MemoryRepository")
+		repo = NewInMemoryLinksRepository(nil)
+	}
+
+	return repo, nil
 }
