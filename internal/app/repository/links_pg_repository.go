@@ -19,20 +19,20 @@ func NewPgLinksRepository(ctx context.Context, databaseDSN string) (*PgLinksRepo
 		return nil, err
 	}
 	query := `insert into shortener.links(link_id, original_url, uid) values($1, $2, $3)`
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	stmt, err := conn.Prepare(ctx, "insert link", query)
-	if err != nil {
-		return nil, err
-	}
 	repo := PgLinksRepository{
-		conn:           conn,
-		insertLinkStmt: stmt,
+		conn: conn,
 	}
 	err = repo.migrate(ctx)
 	if err != nil {
 		return nil, err
 	}
+	stmt, err := conn.Prepare(ctx, "insert link", query)
+	if err != nil {
+		return nil, err
+	}
+	repo.insertLinkStmt = stmt
 	return &repo, nil
 }
 
