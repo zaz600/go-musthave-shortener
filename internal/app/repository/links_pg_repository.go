@@ -76,19 +76,6 @@ WITH new_link AS (
 }
 
 func (p *PgLinksRepository) PutBatch(ctx context.Context, linkEntities []LinkEntity) error {
-	batch := make([]LinkEntity, 0, 100)
-	for i, entity := range linkEntities {
-		batch = append(batch, entity)
-		if cap(batch) == len(batch) || i == len(linkEntities)-1 {
-			if err := p.flush(ctx, batch); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (p *PgLinksRepository) flush(ctx context.Context, linkEntities []LinkEntity) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 

@@ -170,6 +170,7 @@ func (s *Service) ShortenBatch() http.HandlerFunc {
 		var request ShortenBatchRequest
 		err := decoder.Decode(&request)
 		if err != nil {
+			log.Warn().Err(err).Msg("")
 			http.Error(w, "invalid request params", http.StatusBadRequest)
 			return
 		}
@@ -180,8 +181,11 @@ func (s *Service) ShortenBatch() http.HandlerFunc {
 			uid = random.UserID()
 		}
 
-		// если записей будет 1М, то конвертацию лучше делать в функции вставки,
-		// которая будет конвертировать в нужный формат батчами
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+		defer cancel()
+		batch := repository.NewBatch(100, s.repository)
+		defer batch.Flush(ctx)
+
 		linkEntities := make([]repository.LinkEntity, 0, len(request))
 		for _, item := range request {
 			if !isValidURL(item.URL) {
@@ -191,16 +195,13 @@ func (s *Service) ShortenBatch() http.HandlerFunc {
 
 			entity := repository.NewLinkEntity(item.URL, uid)
 			entity.CorrelationID = item.CorrelationID
+			err = batch.Add(ctx, entity)
+			if err != nil {
+				log.Warn().Err(err).Str("uid", uid).Msg("")
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
 			linkEntities = append(linkEntities, entity)
-		}
-		// Сейчас возможна ситуация, когда ошибка произошла на последней записи из пачки,
-		// мы вернем ошибку, хотя в бд будут вставлены все записи, кроме последней
-		// Нужно уточнить ТЗ :)
-		err = s.repository.PutBatch(r.Context(), linkEntities)
-		if err != nil {
-			log.Warn().Err(err).Str("uid", uid).Msg("")
-			http.Error(w, "internal server error", http.StatusInternalServerError)
-			return
 		}
 
 		var resp ShortenBatchResponse
