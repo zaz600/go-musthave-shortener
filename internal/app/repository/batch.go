@@ -7,21 +7,21 @@ type BatchWriter interface {
 	Flush(ctx context.Context) error
 }
 
-type Batch struct {
+type BatchService struct {
 	batchSize  int
 	buffer     []LinkEntity
 	repository LinksRepository
 }
 
-func NewBatch(batchSize int, repository LinksRepository) *Batch {
-	return &Batch{
+func NewBatchService(batchSize int, repository LinksRepository) *BatchService {
+	return &BatchService{
 		batchSize:  batchSize,
 		buffer:     make([]LinkEntity, 0, batchSize),
 		repository: repository,
 	}
 }
 
-func (b *Batch) Add(ctx context.Context, e LinkEntity) error {
+func (b *BatchService) Add(ctx context.Context, e LinkEntity) error {
 	b.buffer = append(b.buffer, e)
 	if cap(b.buffer) == len(b.buffer) {
 		if err := b.Flush(ctx); err != nil {
@@ -31,7 +31,7 @@ func (b *Batch) Add(ctx context.Context, e LinkEntity) error {
 	return nil
 }
 
-func (b *Batch) Flush(ctx context.Context) error {
+func (b *BatchService) Flush(ctx context.Context) error {
 	err := b.repository.PutBatch(ctx, b.buffer)
 	if err != nil {
 		return err

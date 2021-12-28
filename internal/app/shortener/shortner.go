@@ -183,7 +183,7 @@ func (s *Service) ShortenBatch() http.HandlerFunc {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 		defer cancel()
-		batch := repository.NewBatch(100, s.repository)
+		batch := repository.NewBatchService(100, s.repository)
 		defer batch.Flush(ctx)
 
 		linkEntities := make([]repository.LinkEntity, 0, len(request))
