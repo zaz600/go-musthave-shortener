@@ -27,7 +27,7 @@ func TestBatchService_Add(t *testing.T) {
 		}
 	}
 	// и еще одна попытка записи уже после сброса буфера в репозиторий
-	err := batch.Add(context.Background(), NewLinkEntity(fmt.Sprintf("http://ya.ru/?1000"), "123456"))
+	err := batch.Add(context.Background(), NewLinkEntity("http://ya.ru/?1000", "123456"))
 	require.NoError(t, err)
 	assert.Len(t, repo.db, batchSize)
 	assert.Len(t, batch.buffer, 1)
