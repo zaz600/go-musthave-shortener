@@ -100,7 +100,7 @@ func (s *Service) ShortenURL() http.HandlerFunc {
 			uid = random.UserID()
 		}
 		linkEntity := repository.NewLinkEntity(originalURL, uid)
-		linkID, err := s.repository.Put(r.Context(), linkEntity)
+		_, err = s.repository.Put(r.Context(), linkEntity)
 		if err != nil {
 			var linkExistsErr *repository.LinkExistsError
 			if !errors.As(err, &linkExistsErr) {
@@ -108,11 +108,11 @@ func (s *Service) ShortenURL() http.HandlerFunc {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return
 			}
-			linkID = linkExistsErr.LinkID
+			linkEntity.ID = linkExistsErr.LinkID
 			statusHeader = http.StatusConflict
 		}
 		helper.SetUIDCookie(w, uid)
-		writeAnswer(w, "text/html", statusHeader, s.shortURL(linkID))
+		writeAnswer(w, "text/html", statusHeader, s.shortURL(linkEntity.ID))
 	}
 }
 
@@ -138,20 +138,19 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 			uid = random.UserID()
 		}
 		linkEntity := repository.NewLinkEntity(originalURL, uid)
-		linkID, err := s.repository.Put(r.Context(), linkEntity)
+		_, err = s.repository.Put(r.Context(), linkEntity)
 		if err != nil {
 			var linkExistsErr *repository.LinkExistsError
-			if errors.As(err, &linkExistsErr) {
-				linkID = linkExistsErr.LinkID
-				statusHeader = http.StatusConflict
-			} else {
+			if !errors.As(err, &linkExistsErr) {
 				log.Warn().Err(err).Fields(linkEntity).Msg("")
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return
 			}
+			linkEntity.ID = linkExistsErr.LinkID
+			statusHeader = http.StatusConflict
 		}
 		resp := ShortenResponse{
-			Result: fmt.Sprintf("%s/%s", s.baseURL, linkID),
+			Result: s.shortURL(linkEntity.ID),
 		}
 
 		data, err := json.Marshal(resp)

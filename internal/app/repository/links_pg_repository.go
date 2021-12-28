@@ -50,7 +50,7 @@ func (p *PgLinksRepository) Get(ctx context.Context, linkID string) (LinkEntity,
 }
 
 // Put сохраняет ссылку в БД. Если оригинальная ссылка уже есть среди сокращенных, возвращает ошибку LinkExistsError
-func (p *PgLinksRepository) Put(ctx context.Context, linkEntity LinkEntity) (string, error) {
+func (p *PgLinksRepository) Put(ctx context.Context, linkEntity LinkEntity) (LinkEntity, error) {
 	query := `
 WITH new_link AS (
     INSERT INTO shortener.links(link_id, original_url, uid) VALUES ($1, $2, $3)
@@ -65,14 +65,14 @@ WITH new_link AS (
 	var linkID string
 	err := p.conn.QueryRow(ctx, query, linkEntity.ID, linkEntity.OriginalURL, linkEntity.UID).Scan(&linkID)
 	if err != nil {
-		return "", err
+		return LinkEntity{}, err
 	}
 	if linkEntity.ID != linkID {
 		// хотели положить в бд ссылку с одним коротким айди,
 		// а вернулся айди ранее сохкращеной ссылки
-		return "", NewLinkExistsError(linkID)
+		return LinkEntity{}, NewLinkExistsError(linkID)
 	}
-	return linkID, nil
+	return linkEntity, nil
 }
 
 func (p *PgLinksRepository) PutBatch(ctx context.Context, linkEntities []LinkEntity) error {

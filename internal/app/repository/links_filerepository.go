@@ -51,21 +51,21 @@ func (f *FileLinksRepository) Get(_ context.Context, linkID string) (LinkEntity,
 	return LinkEntity{}, fmt.Errorf("link with id '%s' not found", linkID)
 }
 
-func (f *FileLinksRepository) Put(_ context.Context, linkEntity LinkEntity) (string, error) {
+func (f *FileLinksRepository) Put(_ context.Context, linkEntity LinkEntity) (LinkEntity, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
 	for _, entity := range f.cache {
 		if entity.OriginalURL == linkEntity.OriginalURL {
-			return "", NewLinkExistsError(entity.ID)
+			return LinkEntity{}, NewLinkExistsError(entity.ID)
 		}
 	}
 
 	f.cache[linkEntity.ID] = linkEntity
 	if err := f.dump(linkEntity); err != nil {
-		return "", err
+		return LinkEntity{}, err
 	}
-	return linkEntity.ID, nil
+	return linkEntity, nil
 }
 
 func (f *FileLinksRepository) PutBatch(_ context.Context, linkEntities []LinkEntity) error {

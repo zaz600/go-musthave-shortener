@@ -34,18 +34,18 @@ func (m InMemoryLinksRepository) Get(_ context.Context, linkID string) (LinkEnti
 
 // Put сохраняет длинный url в хранилище и возвращает идентификатор,
 // с которым длинный url можно получить обратно
-func (m InMemoryLinksRepository) Put(_ context.Context, linkEntity LinkEntity) (string, error) {
+func (m InMemoryLinksRepository) Put(_ context.Context, linkEntity LinkEntity) (LinkEntity, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	for _, entity := range m.db {
 		if entity.OriginalURL == linkEntity.OriginalURL {
-			return "", NewLinkExistsError(entity.ID)
+			return LinkEntity{}, NewLinkExistsError(entity.ID)
 		}
 	}
 
 	m.db[linkEntity.ID] = linkEntity
-	return linkEntity.ID, nil
+	return linkEntity, nil
 }
 
 func (m InMemoryLinksRepository) PutBatch(_ context.Context, linkEntities []LinkEntity) error {

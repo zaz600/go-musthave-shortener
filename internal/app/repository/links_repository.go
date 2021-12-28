@@ -25,7 +25,7 @@ func NewLinkEntity(originalURL string, uid string) LinkEntity {
 
 type LinksRepository interface {
 	Get(ctx context.Context, linkID string) (LinkEntity, error)
-	Put(ctx context.Context, linkEntity LinkEntity) (string, error)
+	Put(ctx context.Context, linkEntity LinkEntity) (LinkEntity, error)
 	PutBatch(ctx context.Context, linkEntities []LinkEntity) error
 	Count(ctx context.Context) (int, error)
 	FindLinksByUID(ctx context.Context, uid string) ([]LinkEntity, error)
