@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"sync"
 )
@@ -20,8 +21,8 @@ func NewInMemoryLinksRepository(db map[string]LinkEntity) InMemoryLinksRepositor
 	}
 }
 
-// Get извлекает из хранилища длинный url по идентификатору
-func (m InMemoryLinksRepository) Get(linkID string) (LinkEntity, error) {
+// Get достает по linkID из репозитория информацию по сокращенной ссылке LinkEntity
+func (m InMemoryLinksRepository) Get(_ context.Context, linkID string) (LinkEntity, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -31,17 +32,24 @@ func (m InMemoryLinksRepository) Get(linkID string) (LinkEntity, error) {
 	return LinkEntity{}, fmt.Errorf("link with id '%s' not found", linkID)
 }
 
-// Put сохраняет длинный url в хранилище и возвращает идентификатор,
-// с которым длинный url можно получить обратно
-func (m InMemoryLinksRepository) Put(linkEntity LinkEntity) (string, error) {
+// PutIfAbsent сохраняет в БД длинную ссылку, если такой там еще нет.
+// Если длинная ссылка есть в БД, выбрасывает исключение LinkExistsError с идентификатором ее короткой ссылки.
+func (m InMemoryLinksRepository) PutIfAbsent(_ context.Context, linkEntity LinkEntity) (LinkEntity, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	for _, entity := range m.db {
+		if entity.OriginalURL == linkEntity.OriginalURL {
+			return LinkEntity{}, NewLinkExistsError(entity.ID)
+		}
+	}
+
 	m.db[linkEntity.ID] = linkEntity
-	return linkEntity.ID, nil
+	return linkEntity, nil
 }
 
-func (m InMemoryLinksRepository) PutBatch(linkEntities []LinkEntity) error {
+// PutBatch сохраняет в хранилище список сокращенных ссылок. Все ссылки записываются в одной транзакции.
+func (m InMemoryLinksRepository) PutBatch(_ context.Context, linkEntities []LinkEntity) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, linkEntity := range linkEntities {
@@ -50,11 +58,13 @@ func (m InMemoryLinksRepository) PutBatch(linkEntities []LinkEntity) error {
 	return nil
 }
 
-func (m InMemoryLinksRepository) Count() (int, error) {
+// Count возвращает количество записей в репозитории.
+func (m InMemoryLinksRepository) Count(_ context.Context) (int, error) {
 	return len(m.db), nil
 }
 
-func (m InMemoryLinksRepository) FindLinksByUID(uid string) ([]LinkEntity, error) {
+// FindLinksByUID возвращает ссылки по идентификатору пользователя
+func (m InMemoryLinksRepository) FindLinksByUID(_ context.Context, uid string) ([]LinkEntity, error) {
 	result := make([]LinkEntity, 0, 100)
 	for _, entity := range m.db {
 		if entity.UID == uid {
@@ -64,10 +74,12 @@ func (m InMemoryLinksRepository) FindLinksByUID(uid string) ([]LinkEntity, error
 	return result, nil
 }
 
-func (m InMemoryLinksRepository) Status() error {
+// Status статус подключения к хранилищу
+func (m InMemoryLinksRepository) Status(_ context.Context) error {
 	return nil
 }
 
-func (m InMemoryLinksRepository) Close() error {
+// Close закрывает, все, что надо закрыть
+func (m InMemoryLinksRepository) Close(_ context.Context) error {
 	return nil
 }

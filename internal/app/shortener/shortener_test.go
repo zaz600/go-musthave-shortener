@@ -2,6 +2,7 @@ package shortener
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -109,6 +110,7 @@ func TestService_Get(t *testing.T) {
 	}
 }
 
+//nolint:funlen
 func TestService_Post(t *testing.T) {
 	type want struct {
 		code        int
@@ -238,9 +240,49 @@ func TestService_PostMultiple(t *testing.T) {
 		res, _ := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
 		res.Body.Close()
 	}
-	count, err := s.repository.Count()
+	count, err := s.repository.Count(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, 6, count) // 1 + 5
+}
+
+func TestService_PostExist(t *testing.T) {
+	longURL := "http://ya.ru/123"
+	db := map[string]repository.LinkEntity{
+		"100": {
+			ID:          "100",
+			OriginalURL: longURL,
+		},
+	}
+	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(db)))
+	ts := httptest.NewServer(s.Mux)
+	defer ts.Close()
+
+	res, body := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
+	defer res.Body.Close()
+
+	assert.Equal(t, http.StatusConflict, res.StatusCode)
+	assert.Equal(t, body, "http://localhost:8080/100")
+}
+
+func TestService_PostJSONExist(t *testing.T) {
+	longURL := "http://ya.ru/123"
+
+	db := map[string]repository.LinkEntity{
+		"100": {
+			ID:          "100",
+			OriginalURL: longURL,
+		},
+	}
+	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(db)))
+	ts := httptest.NewServer(s.Mux)
+	defer ts.Close()
+
+	request := []byte(fmt.Sprintf(`{"url":"%s"}`, longURL))
+	res, body := testRequest(t, ts, "POST", "/api/shorten", bytes.NewReader(request), nil) //nolint:bodyclose
+	defer res.Body.Close()
+
+	assert.Equal(t, http.StatusConflict, res.StatusCode)
+	assert.JSONEq(t, body, `{"result":"http://localhost:8080/100"}`)
 }
 
 func TestService_GetUserLinks(t *testing.T) {
@@ -389,6 +431,64 @@ func TestService_Post_JSON(t *testing.T) {
 				parsedURL, err := url.Parse(actual.Result)
 				assert.NoError(t, err)
 				assert.Len(t, parsedURL.Path, 9)
+			}
+		})
+	}
+}
+
+//nolint:funlen
+func TestService_Post_Batch(t *testing.T) {
+	type want struct {
+		code        int
+		contentType string
+		len         int
+	}
+
+	tests := []struct {
+		name        string
+		db          map[string]repository.LinkEntity
+		queryString string
+		body        []byte
+		contentType string
+		want        want
+		correctURL  bool
+	}{
+		{
+			name: "correct url",
+			db: map[string]repository.LinkEntity{
+				"100": {
+					ID:          "100",
+					OriginalURL: "http://ya.ru/123",
+				},
+			},
+			queryString: "/api/shorten/batch",
+			body:        []byte(`[{"original_url": "https://ya.ru/?dsfsfsdf", "correlation_id": "1"}, {"original_url": "https://ya.ru/?12345", "correlation_id": "2"}]`),
+			want: want{
+				code:        http.StatusCreated,
+				contentType: "application/json",
+				len:         2,
+			},
+			correctURL: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(tt.db)))
+
+			ts := httptest.NewServer(s.Mux)
+			defer ts.Close()
+
+			res, respBody := testRequest(t, ts, "POST", tt.queryString, bytes.NewReader(tt.body), nil) //nolint:bodyclose
+			defer res.Body.Close()
+
+			assert.Equal(t, tt.want.code, res.StatusCode)
+			assert.Equal(t, tt.want.contentType, res.Header.Get("Content-Type"))
+			if tt.correctURL {
+				var actual ShortenBatchResponse
+				err := json.Unmarshal([]byte(respBody), &actual)
+				require.NoError(t, err)
+				assert.Len(t, actual, tt.want.len)
+				assert.NotEqual(t, actual[0].ShortURL, actual[1].ShortURL)
 			}
 		})
 	}
