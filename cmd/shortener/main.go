@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -26,7 +30,10 @@ func CLI(args []string) int {
 }
 
 func runApp(args []string) (err error) {
-	ctx := context.Background()
+	ctxBg := context.Background()
+	ctx, cancel := signal.NotifyContext(ctxBg, os.Interrupt, syscall.SIGINT)
+	defer cancel()
+
 	cfg := config.GetConfig(args)
 	log.Info().Msgf("app cfg: %+v", cfg)
 
@@ -39,5 +46,22 @@ func runApp(args []string) (err error) {
 	defer func(ctx context.Context, s *shortener.Service) {
 		_ = s.Shutdown(ctx)
 	}(ctx, s)
-	return http.ListenAndServe(cfg.ServerAddress, s)
+
+	server := &http.Server{Addr: cfg.ServerAddress, Handler: s}
+
+	go func() {
+		<-ctx.Done()
+		log.Info().Msg("Shutdown...")
+		ctx, cancel := context.WithTimeout(ctxBg, 5*time.Second)
+		defer cancel()
+
+		if err := server.Shutdown(ctx); err != nil {
+			log.Err(err).Msg("error during shutdown server")
+		}
+	}()
+
+	if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
 }

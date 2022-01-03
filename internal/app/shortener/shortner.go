@@ -40,7 +40,9 @@ func NewService(baseURL string, opts ...Option) *Service {
 }
 
 func (s *Service) shortURL(linkID string) string {
-	return fmt.Sprintf("%s/%s", s.baseURL, linkID)
+	parsedURL, _ := url.Parse(s.baseURL)
+	parsedURL.Path = linkID
+	return parsedURL.String()
 }
 
 func (s *Service) logCookieError(r *http.Request, err error) {
