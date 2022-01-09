@@ -303,14 +303,7 @@ func TestService_GetUserLinks(t *testing.T) {
 	defer resGet.Body.Close()
 	assert.NotEmpty(t, shortLink)
 
-	var uidCookie *http.Cookie
-	for _, cookie := range resGet.Cookies() {
-		if cookie.Name == "SHORTENER_UID" {
-			uidCookie = cookie
-			break
-		}
-	}
-	require.NotNil(t, uidCookie)
+	uidCookie := extractUidCookie(t, resGet)
 
 	res, respBody := testRequest(t, ts, "GET", "/user/urls", nil, uidCookie)
 	res.Body.Close()
@@ -494,6 +487,55 @@ func TestService_Post_Batch(t *testing.T) {
 	}
 }
 
+func TestService_DeleteUserLinks(t *testing.T) {
+	db := map[string]repository.LinkEntity{
+		"100": {
+			ID:          "100",
+			OriginalURL: "http://ya.ru/123",
+			UID:         "100500",
+		},
+	}
+
+	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(db)))
+	ts := httptest.NewServer(s.Mux)
+	defer ts.Close()
+
+	// Добавляем ссылки
+	links := shortenLinks(t, ts)
+	linksToDelete := make([]LinkInfo, 0, 3)
+	linksNotDeleted := make([]LinkInfo, 0, len(links)-cap(linksToDelete))
+	for _, linkInfo := range links {
+		if len(linksToDelete) == cap(linksToDelete) {
+			linksNotDeleted = append(linksNotDeleted, linkInfo)
+		} else {
+			linksToDelete = append(linksToDelete, linkInfo)
+		}
+	}
+	deleteReq := []byte(fmt.Sprintf(`["%s", "%s", "%s"]`, linksToDelete[0].ShortID, linksToDelete[1].ShortID, linksToDelete[2].ShortID))
+	// удаляем
+	resDel, _ := testRequest(t, ts, "DELETE", "/user/urls", bytes.NewReader(deleteReq), linksToDelete[0].Cookie) //nolint:bodyclose
+	defer resDel.Body.Close()
+	assert.Equal(t, http.StatusAccepted, resDel.StatusCode)
+
+	// Проверяем статусы по удаленным ссылкам
+	for _, deletedLink := range linksToDelete {
+		res, _ := testRequest(t, ts, "GET", fmt.Sprintf("/%s", deletedLink.ShortID), nil, nil)
+		res.Body.Close()
+		assert.Equal(t, http.StatusGone, res.StatusCode)
+	}
+
+	// Проверяем статусы по ссылкам, которые не удаляли
+	for _, link := range linksNotDeleted {
+		res, _ := testRequest(t, ts, "GET", fmt.Sprintf("/%s", link.ShortID), nil, nil)
+		res.Body.Close()
+		assert.Equal(t, http.StatusTemporaryRedirect, res.StatusCode)
+	}
+
+	count, err := s.repository.Count(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, len(links)+1, count)
+}
+
 func testRequest(t *testing.T, ts *httptest.Server, method, path string, body io.Reader, cookie *http.Cookie) (*http.Response, string) {
 	req, err := http.NewRequest(method, ts.URL+path, body)
 	require.NoError(t, err)
@@ -522,4 +564,48 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, body io
 	defer resp.Body.Close()
 
 	return resp, string(respBody)
+}
+
+type LinkInfo struct {
+	LongURL  string
+	ShortURL string
+	ShortID  string
+	Cookie   *http.Cookie
+}
+
+func shortenLinks(t *testing.T, ts *httptest.Server) map[string]LinkInfo {
+	t.Helper()
+
+	links := make(map[string]LinkInfo, 5)
+	for i := 0; i < 5; i++ {
+		longURL := fmt.Sprintf(`https://yandex.ru/search/?lr=2&text=abc%d`, i)
+		res, shortURL := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
+		res.Body.Close()
+		assert.NotEmpty(t, shortURL)
+		parsedURL, err := url.Parse(shortURL)
+		assert.NoError(t, err)
+		shortID := strings.TrimPrefix(parsedURL.Path, "/")
+		links[shortID] = LinkInfo{
+			LongURL:  longURL,
+			ShortURL: shortURL,
+			ShortID:  shortID,
+			Cookie:   extractUidCookie(t, res),
+		}
+	}
+
+	return links
+}
+
+func extractUidCookie(t *testing.T, r *http.Response) *http.Cookie {
+	t.Helper()
+
+	var uidCookie *http.Cookie
+	for _, cookie := range r.Cookies() {
+		if cookie.Name == "SHORTENER_UID" {
+			uidCookie = cookie
+			break
+		}
+	}
+	require.NotNil(t, uidCookie)
+	return uidCookie
 }
