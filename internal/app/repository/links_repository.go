@@ -69,7 +69,7 @@ func NewRepository(ctx context.Context, cfg *config.ShortenConfig) (LinksReposit
 		}
 	default:
 		log.Info().Msg("MemoryRepository")
-		repo = NewInMemoryLinksRepository(nil)
+		repo = NewInMemoryLinksRepository(context.Background(), nil)
 	}
 
 	return repo, nil

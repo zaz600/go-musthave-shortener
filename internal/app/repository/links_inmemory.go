@@ -7,18 +7,21 @@ import (
 )
 
 type InMemoryLinksRepository struct {
-	mu *sync.RWMutex
-	db map[string]LinkEntity
+	mu           *sync.RWMutex
+	db           map[string]LinkEntity
+	linkRemoveCh chan<- string
 }
 
-func NewInMemoryLinksRepository(db map[string]LinkEntity) InMemoryLinksRepository {
+func NewInMemoryLinksRepository(ctx context.Context, db map[string]LinkEntity) InMemoryLinksRepository {
 	if db == nil {
 		db = make(map[string]LinkEntity)
 	}
-	return InMemoryLinksRepository{
+	repo := InMemoryLinksRepository{
 		mu: &sync.RWMutex{},
 		db: db,
 	}
+	repo.linkRemoveCh = repo.startRemoveLinksWorkers(ctx)
+	return repo
 }
 
 // Get достает по linkID из репозитория информацию по сокращенной ссылке LinkEntity
@@ -79,14 +82,16 @@ func (m InMemoryLinksRepository) FindLinksByUID(_ context.Context, uid string) (
 
 // DeleteLinksByUID удаляет ссылки пользователя
 func (m InMemoryLinksRepository) DeleteLinksByUID(ctx context.Context, uid string, ids []string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	for _, id := range ids {
-		// тут возможно надо обработать, что пытаются удалить чужой линк, но пока просто его пропустим
-		if entity, ok := m.db[id]; ok && entity.UID == uid {
-			entity.Removed = true
-			m.db[id] = entity
+		entity, ok := m.db[id]
+		if !(ok && entity.UID == uid) {
+			// тут возможно надо обработать, что пытаются удалить чужой линк, но пока просто его пропустим
+			continue
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case m.linkRemoveCh <- id:
 		}
 	}
 	return nil
@@ -100,4 +105,29 @@ func (m InMemoryLinksRepository) Status(_ context.Context) error {
 // Close закрывает, все, что надо закрыть
 func (m InMemoryLinksRepository) Close(_ context.Context) error {
 	return nil
+}
+
+func (m InMemoryLinksRepository) startRemoveLinksWorkers(ctx context.Context) chan<- string {
+	linkCh := make(chan string)
+	for i := 0; i < 5; i++ {
+		go func() {
+			select {
+			case <-ctx.Done():
+				return
+			case linkID := <-linkCh:
+				m.removeLink(linkID)
+			}
+		}()
+	}
+	return linkCh
+}
+
+func (m InMemoryLinksRepository) removeLink(linkID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if entity, ok := m.db[linkID]; ok {
+		entity.Removed = true
+		m.db[linkID] = entity
+	}
 }

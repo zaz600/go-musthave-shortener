@@ -97,7 +97,7 @@ func TestService_Get(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(tt.db)))
+			s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(context.Background(), tt.db)))
 			ts := httptest.NewServer(s.Mux)
 			defer ts.Close()
 
@@ -163,7 +163,7 @@ func TestService_Post(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(tt.db)))
+			s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(context.Background(), tt.db)))
 
 			ts := httptest.NewServer(s.Mux)
 			defer ts.Close()
@@ -203,7 +203,7 @@ func TestService_SuccessPath(t *testing.T) {
 			OriginalURL: "http://ya.ru/123",
 		},
 	}
-	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(db)))
+	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(context.Background(), db)))
 
 	ts := httptest.NewServer(s.Mux)
 	defer ts.Close()
@@ -231,7 +231,7 @@ func TestService_PostMultiple(t *testing.T) {
 			OriginalURL: "http://ya.ru/123",
 		},
 	}
-	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(db)))
+	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(context.Background(), db)))
 	ts := httptest.NewServer(s.Mux)
 	defer ts.Close()
 
@@ -253,7 +253,7 @@ func TestService_PostExist(t *testing.T) {
 			OriginalURL: longURL,
 		},
 	}
-	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(db)))
+	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(context.Background(), db)))
 	ts := httptest.NewServer(s.Mux)
 	defer ts.Close()
 
@@ -273,7 +273,7 @@ func TestService_PostJSONExist(t *testing.T) {
 			OriginalURL: longURL,
 		},
 	}
-	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(db)))
+	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(context.Background(), db)))
 	ts := httptest.NewServer(s.Mux)
 	defer ts.Close()
 
@@ -294,7 +294,7 @@ func TestService_GetUserLinks(t *testing.T) {
 			UID:         "100500",
 		},
 	}
-	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(db)))
+	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(context.Background(), db)))
 	ts := httptest.NewServer(s.Mux)
 	defer ts.Close()
 
@@ -404,7 +404,7 @@ func TestService_Post_JSON(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(tt.db)))
+			s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(context.Background(), tt.db)))
 
 			ts := httptest.NewServer(s.Mux)
 			defer ts.Close()
@@ -466,7 +466,7 @@ func TestService_Post_Batch(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(tt.db)))
+			s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(context.Background(), tt.db)))
 
 			ts := httptest.NewServer(s.Mux)
 			defer ts.Close()
@@ -496,7 +496,7 @@ func TestService_DeleteUserLinks(t *testing.T) {
 		},
 	}
 
-	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(db)))
+	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(context.Background(), db)))
 	ts := httptest.NewServer(s.Mux)
 	defer ts.Close()
 

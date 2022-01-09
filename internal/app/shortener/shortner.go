@@ -33,7 +33,7 @@ func NewService(baseURL string, opts ...Option) *Service {
 	}
 
 	if s.repository == nil {
-		s.repository = repository.NewInMemoryLinksRepository(nil)
+		s.repository = repository.NewInMemoryLinksRepository(context.TODO(), nil)
 	}
 	s.setupHandlers()
 	return s
