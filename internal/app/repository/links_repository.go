@@ -13,6 +13,7 @@ type LinkEntity struct {
 	OriginalURL   string `json:"original_url"`
 	UID           string `json:"uid,omitempty"`
 	CorrelationID string `json:"correlation_id,omitempty"`
+	Removed       bool   `json:"-"`
 }
 
 func NewLinkEntity(originalURL string, uid string) LinkEntity {
@@ -39,6 +40,9 @@ type LinksRepository interface {
 
 	// FindLinksByUID возвращает ссылки по идентификатору пользователя
 	FindLinksByUID(ctx context.Context, uid string) ([]LinkEntity, error)
+
+	// DeleteLinksByUID отложенно запускает удаление ссылок пользователя
+	DeleteLinksByUID(ctx context.Context, uid string, ids []string) error
 
 	// Status статус подключения к хранилищу
 	Status(ctx context.Context) error

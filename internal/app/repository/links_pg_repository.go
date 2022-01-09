@@ -139,6 +139,11 @@ func (p *PgLinksRepository) FindLinksByUID(ctx context.Context, uid string) ([]L
 	return result, nil
 }
 
+// DeleteLinksByUID удаляет ссылки пользователя
+func (p *PgLinksRepository) DeleteLinksByUID(ctx context.Context, uid string, ids []string) error {
+	panic("TODO")
+}
+
 // Status статус подключения к хранилищу
 func (p *PgLinksRepository) Status(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Second)

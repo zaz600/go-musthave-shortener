@@ -27,7 +27,10 @@ func (m InMemoryLinksRepository) Get(_ context.Context, linkID string) (LinkEnti
 	defer m.mu.RUnlock()
 
 	if entity, ok := m.db[linkID]; ok {
-		return entity, nil
+		if !entity.Removed {
+			return entity, nil
+		}
+		return LinkEntity{}, ErrLinkRemoved
 	}
 	return LinkEntity{}, fmt.Errorf("link with id '%s' not found", linkID)
 }
@@ -67,11 +70,26 @@ func (m InMemoryLinksRepository) Count(_ context.Context) (int, error) {
 func (m InMemoryLinksRepository) FindLinksByUID(_ context.Context, uid string) ([]LinkEntity, error) {
 	result := make([]LinkEntity, 0, 100)
 	for _, entity := range m.db {
-		if entity.UID == uid {
+		if entity.UID == uid && !entity.Removed {
 			result = append(result, entity)
 		}
 	}
 	return result, nil
+}
+
+// DeleteLinksByUID удаляет ссылки пользователя
+func (m InMemoryLinksRepository) DeleteLinksByUID(ctx context.Context, uid string, ids []string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, id := range ids {
+		// тут возможно надо обработать, что пытаются удалить чужой линк, но пока просто его пропустим
+		if entity, ok := m.db[id]; ok && entity.UID == uid {
+			entity.Removed = true
+			m.db[id] = entity
+		}
+	}
+	return nil
 }
 
 // Status статус подключения к хранилищу

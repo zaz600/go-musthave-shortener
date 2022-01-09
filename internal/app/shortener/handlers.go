@@ -32,17 +32,25 @@ func (s *Service) setupHandlers() {
 	s.Post("/api/shorten", s.ShortenJSON())
 	s.Post("/api/shorten/batch", s.ShortenBatch())
 	s.Get("/user/urls", s.GetUserLinks())
+	s.Delete("/user/urls", s.DeleteUserLinks())
 	s.Get("/ping", s.Ping())
 }
 
 func (s *Service) GetOriginalURL() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		linkID := chi.URLParam(r, "linkID")
-		if linkEntity, err := s.repository.Get(r.Context(), linkID); err == nil {
-			http.Redirect(w, r, linkEntity.OriginalURL, http.StatusTemporaryRedirect)
+		linkEntity, err := s.repository.Get(r.Context(), linkID)
+		if err != nil {
+			if errors.Is(err, repository.ErrLinkRemoved) {
+				http.Error(w, "url was removed", http.StatusGone)
+				return
+			}
+
+			http.Error(w, "url not found", http.StatusBadRequest)
 			return
 		}
-		http.Error(w, "url not found", http.StatusBadRequest)
+
+		http.Redirect(w, r, linkEntity.OriginalURL, http.StatusTemporaryRedirect)
 	}
 }
 
@@ -229,6 +237,35 @@ func (s *Service) GetUserLinks() http.HandlerFunc {
 			return
 		}
 		writeAnswer(w, "application/json", http.StatusOK, string(data))
+	}
+}
+
+func (s *Service) DeleteUserLinks() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		uid, err := helper.ExtractUID(r.Cookies())
+		if err != nil {
+			s.logCookieError(r, err)
+			http.Error(w, "not authorized", http.StatusUnauthorized)
+			return
+		}
+
+		decoder := json.NewDecoder(r.Body)
+		var removeIDs []string
+		err = decoder.Decode(&removeIDs)
+		if err != nil {
+			log.Warn().Err(err).Msg("")
+			http.Error(w, "invalid removeIDs params", http.StatusBadRequest)
+			return
+		}
+
+		err = s.repository.DeleteLinksByUID(r.Context(), uid, removeIDs)
+		if err != nil {
+			log.Warn().Err(err).Str("uid", uid).Msg("")
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusAccepted)
 	}
 }
 

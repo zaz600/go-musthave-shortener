@@ -515,7 +515,7 @@ func TestService_DeleteUserLinks(t *testing.T) {
 	// удаляем
 	resDel, _ := testRequest(t, ts, "DELETE", "/user/urls", bytes.NewReader(deleteReq), linksToDelete[0].Cookie) //nolint:bodyclose
 	defer resDel.Body.Close()
-	assert.Equal(t, http.StatusAccepted, resDel.StatusCode)
+	assert.Equal(t, http.StatusAccepted, resDel.StatusCode, "Запрос на удаление ссылок успешен")
 
 	// Проверяем статусы по удаленным ссылкам
 	for _, deletedLink := range linksToDelete {
@@ -531,9 +531,19 @@ func TestService_DeleteUserLinks(t *testing.T) {
 		assert.Equal(t, http.StatusTemporaryRedirect, res.StatusCode)
 	}
 
+	// В репо ничего не удалилось
 	count, err := s.repository.Count(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, len(links)+1, count)
+
+	// Ручка получения ссылок юзера не выдает удаленные ссылки
+	res, respBody := testRequest(t, ts, "GET", "/user/urls", nil, linksToDelete[0].Cookie)
+	res.Body.Close()
+
+	var actual []UserLinksResponseEntry
+	err = json.Unmarshal([]byte(respBody), &actual)
+	assert.NoError(t, err)
+	assert.Len(t, actual, len(linksNotDeleted))
 }
 
 func testRequest(t *testing.T, ts *httptest.Server, method, path string, body io.Reader, cookie *http.Cookie) (*http.Response, string) {
@@ -576,20 +586,26 @@ type LinkInfo struct {
 func shortenLinks(t *testing.T, ts *httptest.Server) map[string]LinkInfo {
 	t.Helper()
 
+	var uidCookie *http.Cookie
 	links := make(map[string]LinkInfo, 5)
 	for i := 0; i < 5; i++ {
 		longURL := fmt.Sprintf(`https://yandex.ru/search/?lr=2&text=abc%d`, i)
-		res, shortURL := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
+		res, shortURL := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), uidCookie) //nolint:bodyclose
 		res.Body.Close()
 		assert.NotEmpty(t, shortURL)
 		parsedURL, err := url.Parse(shortURL)
 		assert.NoError(t, err)
 		shortID := strings.TrimPrefix(parsedURL.Path, "/")
+
+		if i == 0 {
+			uidCookie = extractUidCookie(t, res)
+		}
+
 		links[shortID] = LinkInfo{
 			LongURL:  longURL,
 			ShortURL: shortURL,
 			ShortID:  shortID,
-			Cookie:   extractUidCookie(t, res),
+			Cookie:   uidCookie,
 		}
 	}
 

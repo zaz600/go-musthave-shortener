@@ -101,6 +101,11 @@ func (f *FileLinksRepository) FindLinksByUID(_ context.Context, uid string) ([]L
 	return result, nil
 }
 
+// DeleteLinksByUID удаляет ссылки пользователя
+func (f *FileLinksRepository) DeleteLinksByUID(ctx context.Context, uid string, ids []string) error {
+	panic("TODO")
+}
+
 // dump сохраняет длинную ссылку и ее идентификатор в файл
 func (f *FileLinksRepository) dump(item LinkEntity) error {
 	defer func(file *os.File) {

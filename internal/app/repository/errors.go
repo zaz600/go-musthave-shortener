@@ -1,6 +1,11 @@
 package repository
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+var ErrLinkRemoved = errors.New("link was deleted")
 
 // LinkExistsError говорит о том, что в хранилище уже есть ссылка,
 // которую пытаются сократить повторно.
