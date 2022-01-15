@@ -190,9 +190,11 @@ func (p *PgLinksRepository) migrate(ctx context.Context) error {
   			link_id varchar,
   			original_url varchar,
   			uid varchar,
-  			created_at TIMESTAMP
+  			created_at TIMESTAMP,
+			removed boolean
 		);
 		ALTER TABLE links ALTER COLUMN created_at SET DEFAULT now();
+		ALTER TABLE links ALTER COLUMN removed SET DEFAULT false;
 		CREATE UNIQUE INDEX IF NOT EXISTS original_url_idx ON links USING btree (original_url);
 		`
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
