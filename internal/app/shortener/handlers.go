@@ -258,12 +258,15 @@ func (s *Service) DeleteUserLinks() http.HandlerFunc {
 			return
 		}
 
-		err = s.repository.DeleteLinksByUID(r.Context(), uid, removeIDs)
-		if err != nil {
-			log.Warn().Err(err).Str("uid", uid).Msg("")
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
-		}
+		go func() {
+			// если использовать r.Context() то он отменяется при завершении зарпоса
+			err = s.repository.DeleteLinksByUID(context.Background(), uid, removeIDs)
+			if err != nil {
+				log.Warn().Err(err).Str("uid", uid).Msg("")
+				return
+			}
+			log.Info().Str("uid", uid).Msg("urls deleted")
+		}()
 
 		w.WriteHeader(http.StatusAccepted)
 	}

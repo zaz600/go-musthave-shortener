@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -513,15 +514,18 @@ func TestService_DeleteUserLinks(t *testing.T) {
 	}
 	deleteReq := []byte(fmt.Sprintf(`["%s", "%s", "%s"]`, linksToDelete[0].ShortID, linksToDelete[1].ShortID, linksToDelete[2].ShortID))
 	// удаляем
-	resDel, _ := testRequest(t, ts, "DELETE", "/user/urls", bytes.NewReader(deleteReq), linksToDelete[0].Cookie) //nolint:bodyclose
+	resDel, _ := testRequest(t, ts, "DELETE", "/api/user/urls", bytes.NewReader(deleteReq), linksToDelete[0].Cookie) //nolint:bodyclose
 	defer resDel.Body.Close()
-	assert.Equal(t, http.StatusAccepted, resDel.StatusCode, "Запрос на удаление ссылок успешен")
+	require.Equal(t, http.StatusAccepted, resDel.StatusCode, "Запрос на удаление ссылок успешен")
 
 	// Проверяем статусы по удаленным ссылкам
 	for _, deletedLink := range linksToDelete {
-		res, _ := testRequest(t, ts, "GET", fmt.Sprintf("/%s", deletedLink.ShortID), nil, nil)
-		res.Body.Close()
-		assert.Equal(t, http.StatusGone, res.StatusCode)
+		deletedLink := deletedLink
+		require.Eventually(t, func() bool {
+			res, _ := testRequest(t, ts, "GET", fmt.Sprintf("/%s", deletedLink.ShortID), nil, nil)
+			res.Body.Close()
+			return res.StatusCode == http.StatusGone
+		}, 1*time.Second, 100*time.Millisecond, "always false")
 	}
 
 	// Проверяем статусы по ссылкам, которые не удаляли

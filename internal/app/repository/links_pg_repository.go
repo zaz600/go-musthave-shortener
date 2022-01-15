@@ -115,7 +115,7 @@ func (p *PgLinksRepository) Count(ctx context.Context) (int, error) {
 
 // FindLinksByUID возвращает ссылки по идентификатору пользователя
 func (p *PgLinksRepository) FindLinksByUID(ctx context.Context, uid string) ([]LinkEntity, error) {
-	query := `select uid, original_url, link_id  from shortener.links where uid=$1`
+	query := `select uid, original_url, link_id  from shortener.links where uid=$1 and removed = false`
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 
