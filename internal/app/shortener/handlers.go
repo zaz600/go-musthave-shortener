@@ -265,7 +265,7 @@ func (s *Service) DeleteUserLinks() http.HandlerFunc {
 				log.Warn().Err(err).Str("uid", uid).Msg("")
 				return
 			}
-			log.Info().Str("uid", uid).Msg("urls deleted")
+			log.Info().Str("uid", uid).Strs("ids", removeIDs).Msg("urls deleted")
 		}()
 
 		w.WriteHeader(http.StatusAccepted)
