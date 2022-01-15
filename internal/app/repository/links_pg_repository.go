@@ -38,12 +38,12 @@ func NewPgLinksRepository(ctx context.Context, databaseDSN string) (*PgLinksRepo
 
 // Get достает по linkID из БД информацию по сокращенной ссылке LinkEntity
 func (p *PgLinksRepository) Get(ctx context.Context, linkID string) (LinkEntity, error) {
-	query := `select uid, original_url, link_id  from shortener.links where link_id = $1`
+	query := `select uid, original_url, link_id, removed  from shortener.links where link_id = $1`
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	var entity LinkEntity
 	result := p.conn.QueryRow(ctx, query, linkID)
-	err := result.Scan(&entity.UID, &entity.OriginalURL, &entity.ID)
+	err := result.Scan(&entity.UID, &entity.OriginalURL, &entity.ID, &entity.Removed)
 	if err != nil {
 		return LinkEntity{}, err
 	}

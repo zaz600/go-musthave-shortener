@@ -30,10 +30,7 @@ func (m InMemoryLinksRepository) Get(_ context.Context, linkID string) (LinkEnti
 	defer m.mu.RUnlock()
 
 	if entity, ok := m.db[linkID]; ok {
-		if !entity.Removed {
-			return entity, nil
-		}
-		return LinkEntity{}, ErrLinkRemoved
+		return entity, nil
 	}
 	return LinkEntity{}, fmt.Errorf("link with id '%s' not found", linkID)
 }

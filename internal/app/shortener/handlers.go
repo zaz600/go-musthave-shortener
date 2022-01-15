@@ -41,12 +41,11 @@ func (s *Service) GetOriginalURL() http.HandlerFunc {
 		linkID := chi.URLParam(r, "linkID")
 		linkEntity, err := s.repository.Get(r.Context(), linkID)
 		if err != nil {
-			if errors.Is(err, repository.ErrLinkRemoved) {
-				http.Error(w, "url was removed", http.StatusGone)
-				return
-			}
-
 			http.Error(w, "url not found", http.StatusBadRequest)
+			return
+		}
+		if linkEntity.Removed {
+			http.Error(w, "url was removed", http.StatusGone)
 			return
 		}
 
