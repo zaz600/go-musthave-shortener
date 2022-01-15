@@ -94,7 +94,7 @@ func (f *FileLinksRepository) Count(_ context.Context) (int, error) {
 func (f *FileLinksRepository) FindLinksByUID(_ context.Context, uid string) ([]LinkEntity, error) {
 	result := make([]LinkEntity, 0, 100)
 	for _, entity := range f.cache {
-		if entity.UID == uid {
+		if entity.UID == uid && !entity.Removed {
 			result = append(result, entity)
 		}
 	}
@@ -103,7 +103,23 @@ func (f *FileLinksRepository) FindLinksByUID(_ context.Context, uid string) ([]L
 
 // DeleteLinksByUID удаляет ссылки пользователя
 func (f *FileLinksRepository) DeleteLinksByUID(ctx context.Context, uid string, ids []string) error {
-	panic("TODO")
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	for _, id := range ids {
+		linkEntity, ok := f.cache[id]
+		if !(ok && linkEntity.UID == uid) {
+			// тут возможно надо обработать, что пытаются удалить чужой линк, но пока просто его пропустим
+			continue
+		}
+		linkEntity.Removed = true
+		f.cache[id] = linkEntity
+		if err := f.dump(linkEntity); err != nil {
+			return err
+		}
+	}
+	return nil
+
 }
 
 // dump сохраняет длинную ссылку и ее идентификатор в файл
