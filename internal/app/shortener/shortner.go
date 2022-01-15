@@ -15,8 +15,9 @@ import (
 
 type Service struct {
 	*chi.Mux
-	baseURL    string
-	repository repository.LinksRepository
+	baseURL      string
+	repository   repository.LinksRepository
+	linkRemoveCh chan<- removeUserLinksRequest
 }
 
 func NewService(baseURL string, opts ...Option) *Service {
@@ -36,6 +37,7 @@ func NewService(baseURL string, opts ...Option) *Service {
 		s.repository = repository.NewInMemoryLinksRepository(context.TODO(), nil)
 	}
 	s.setupHandlers()
+	s.linkRemoveCh = s.startRemoveLinksWorkers(context.TODO(), 10)
 	return s
 }
 
@@ -63,6 +65,29 @@ func (s *Service) logCookieError(r *http.Request, err error) {
 
 func (s *Service) Shutdown(ctx context.Context) error {
 	return s.repository.Close(ctx)
+}
+
+func (s *Service) startRemoveLinksWorkers(ctx context.Context, count int) chan<- removeUserLinksRequest {
+	linkCh := make(chan removeUserLinksRequest, count*2)
+	for i := 0; i < count; i++ {
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case req := <-linkCh:
+					log.Info().Strs("ids", req.linkIDs).Msg("")
+					err := s.repository.DeleteLinksByUID(ctx, req.uid, req.linkIDs)
+					if err != nil {
+						log.Warn().Err(err).Strs("ids", req.linkIDs).Str("uid", req.uid).Msg("error delete user links")
+					} else {
+						log.Info().Str("uid", req.uid).Strs("ids", req.linkIDs).Msg("urls deleted")
+					}
+				}
+			}
+		}()
+	}
+	return linkCh
 }
 
 // isValidURL проверяет адрес на пригодность для сохранения в БД

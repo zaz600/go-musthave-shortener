@@ -257,15 +257,10 @@ func (s *Service) DeleteUserLinks() http.HandlerFunc {
 			return
 		}
 
-		go func() {
-			// если использовать r.Context() то он отменяется при завершении зарпоса
-			err = s.repository.DeleteLinksByUID(context.Background(), uid, removeIDs)
-			if err != nil {
-				log.Warn().Err(err).Str("uid", uid).Msg("")
-				return
-			}
-			log.Info().Str("uid", uid).Strs("ids", removeIDs).Msg("urls deleted")
-		}()
+		s.linkRemoveCh <- removeUserLinksRequest{
+			linkIDs: removeIDs,
+			uid:     uid,
+		}
 
 		w.WriteHeader(http.StatusAccepted)
 	}
