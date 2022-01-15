@@ -303,7 +303,7 @@ func TestService_GetUserLinks(t *testing.T) {
 	defer resGet.Body.Close()
 	assert.NotEmpty(t, shortLink)
 
-	uidCookie := extractUidCookie(t, resGet)
+	uidCookie := extractUIDCookie(t, resGet)
 
 	res, respBody := testRequest(t, ts, "GET", "/user/urls", nil, uidCookie)
 	res.Body.Close()
@@ -598,7 +598,7 @@ func shortenLinks(t *testing.T, ts *httptest.Server) map[string]LinkInfo {
 		shortID := strings.TrimPrefix(parsedURL.Path, "/")
 
 		if i == 0 {
-			uidCookie = extractUidCookie(t, res)
+			uidCookie = extractUIDCookie(t, res)
 		}
 
 		links[shortID] = LinkInfo{
@@ -612,7 +612,7 @@ func shortenLinks(t *testing.T, ts *httptest.Server) map[string]LinkInfo {
 	return links
 }
 
-func extractUidCookie(t *testing.T, r *http.Response) *http.Cookie {
+func extractUIDCookie(t *testing.T, r *http.Response) *http.Cookie {
 	t.Helper()
 
 	var uidCookie *http.Cookie
