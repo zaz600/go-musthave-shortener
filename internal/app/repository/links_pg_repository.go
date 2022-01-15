@@ -11,6 +11,7 @@ import (
 type PgLinksRepository struct {
 	conn           *pgx.Conn
 	insertLinkStmt *pgconn.StatementDescription
+	removeLinkStmt *pgconn.StatementDescription
 }
 
 func NewPgLinksRepository(ctx context.Context, databaseDSN string) (*PgLinksRepository, error) {
@@ -18,7 +19,6 @@ func NewPgLinksRepository(ctx context.Context, databaseDSN string) (*PgLinksRepo
 	if err != nil {
 		return nil, err
 	}
-	query := `insert into shortener.links(link_id, original_url, uid) values($1, $2, $3)`
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	repo := PgLinksRepository{
@@ -28,11 +28,21 @@ func NewPgLinksRepository(ctx context.Context, databaseDSN string) (*PgLinksRepo
 	if err != nil {
 		return nil, err
 	}
-	stmt, err := conn.Prepare(ctx, "insert link", query)
+
+	queryInsert := `insert into shortener.links(link_id, original_url, uid) values($1, $2, $3)`
+	stmtInsert, err := conn.Prepare(ctx, "insert link", queryInsert)
 	if err != nil {
 		return nil, err
 	}
-	repo.insertLinkStmt = stmt
+	repo.insertLinkStmt = stmtInsert
+
+	queryRemove := `update shortener.links set removed=true where uid=$1 and link_id = any($2)`
+	stmtRemove, err := conn.Prepare(ctx, "remove links", queryRemove)
+	if err != nil {
+		return nil, err
+	}
+	repo.removeLinkStmt = stmtRemove
+
 	return &repo, nil
 }
 
@@ -142,7 +152,6 @@ func (p *PgLinksRepository) FindLinksByUID(ctx context.Context, uid string) ([]L
 // DeleteLinksByUID удаляет ссылки пользователя
 func (p *PgLinksRepository) DeleteLinksByUID(ctx context.Context, uid string, ids []string) error {
 	// TODO надо бить ids на чанки по 1024- штуки
-	query := `update shortener.links set removed=true where uid=$1 and link_id = any($2)`
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -152,7 +161,7 @@ func (p *PgLinksRepository) DeleteLinksByUID(ctx context.Context, uid string, id
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
-	_, err = tx.Exec(ctx, query, uid, ids)
+	_, err = tx.Exec(ctx, p.removeLinkStmt.Name, uid, ids)
 	if err != nil {
 		return err
 	}
