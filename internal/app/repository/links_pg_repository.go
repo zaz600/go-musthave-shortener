@@ -141,7 +141,25 @@ func (p *PgLinksRepository) FindLinksByUID(ctx context.Context, uid string) ([]L
 
 // DeleteLinksByUID удаляет ссылки пользователя
 func (p *PgLinksRepository) DeleteLinksByUID(ctx context.Context, uid string, ids []string) error {
-	panic("TODO")
+	// TODO надо бить ids на чанки по 1024- штуки
+	query := `delete from shortener.links where uid=$1 and id = any($2)`
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	tx, err := p.conn.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	_, err = tx.Exec(ctx, query, uid, ids)
+	if err != nil {
+		return err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Status статус подключения к хранилищу
