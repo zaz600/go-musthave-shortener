@@ -32,7 +32,7 @@ func (s *Service) setupHandlers() {
 	s.Post("/api/shorten", s.ShortenJSON())
 	s.Post("/api/shorten/batch", s.ShortenBatch())
 	s.Get("/user/urls", s.GetUserLinks())
-	s.Delete("/user/urls", s.DeleteUserLinks())
+	s.Delete("/api/user/urls", s.DeleteUserLinks())
 	s.Get("/ping", s.Ping())
 }
 
