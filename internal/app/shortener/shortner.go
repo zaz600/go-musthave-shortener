@@ -76,7 +76,6 @@ func (s *Service) startRemoveLinksWorkers(ctx context.Context, count int) chan<-
 				case <-ctx.Done():
 					return
 				case req := <-linkCh:
-					log.Info().Strs("ids", req.linkIDs).Msg("")
 					err := s.repository.DeleteLinksByUID(ctx, req.uid, req.linkIDs)
 					if err != nil {
 						log.Warn().Err(err).Strs("ids", req.linkIDs).Str("uid", req.uid).Msg("error delete user links")

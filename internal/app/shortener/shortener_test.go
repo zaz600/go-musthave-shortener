@@ -502,7 +502,7 @@ func TestService_DeleteUserLinks(t *testing.T) {
 	defer ts.Close()
 
 	// Добавляем ссылки
-	links := shortenLinks(t, ts)
+	links := shortenLinks(t, ts, 5)
 	linksToDelete := make([]LinkInfo, 0, 3)
 	linksNotDeleted := make([]LinkInfo, 0, len(links)-cap(linksToDelete))
 	for _, linkInfo := range links {
@@ -525,7 +525,7 @@ func TestService_DeleteUserLinks(t *testing.T) {
 			res, _ := testRequest(t, ts, "GET", fmt.Sprintf("/%s", deletedLink.ShortID), nil, nil)
 			res.Body.Close()
 			return res.StatusCode == http.StatusGone
-		}, 1*time.Second, 100*time.Millisecond, "always false")
+		}, 1*time.Second, 100*time.Millisecond, "links are gone")
 	}
 
 	// Проверяем статусы по ссылкам, которые не удаляли
@@ -587,21 +587,23 @@ type LinkInfo struct {
 	Cookie   *http.Cookie
 }
 
-func shortenLinks(t *testing.T, ts *httptest.Server) map[string]LinkInfo {
+func shortenLinks(t *testing.T, ts *httptest.Server, count int) map[string]LinkInfo {
 	t.Helper()
 
 	var uidCookie *http.Cookie
 	links := make(map[string]LinkInfo, 5)
-	for i := 0; i < 5; i++ {
+	for i := 0; i < count; i++ {
 		longURL := fmt.Sprintf(`https://yandex.ru/search/?lr=2&text=abc%d`, i)
 		res, shortURL := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), uidCookie) //nolint:bodyclose
 		res.Body.Close()
+
 		assert.NotEmpty(t, shortURL)
 		parsedURL, err := url.Parse(shortURL)
 		assert.NoError(t, err)
 		shortID := strings.TrimPrefix(parsedURL.Path, "/")
 
 		if i == 0 {
+			// извлекаем куку из первого запроса, чтобы остальные сделать с ней же
 			uidCookie = extractUIDCookie(t, res)
 		}
 
