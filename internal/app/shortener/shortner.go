@@ -34,10 +34,10 @@ func NewService(baseURL string, opts ...Option) *Service {
 	}
 
 	if s.repository == nil {
-		s.repository = repository.NewInMemoryLinksRepository(context.TODO(), nil)
+		s.repository = repository.NewInMemoryLinksRepository(context.Background(), nil)
 	}
 	s.setupHandlers()
-	s.linkRemoveCh = s.startRemoveLinksWorkers(context.TODO(), 10)
+	s.linkRemoveCh = s.startRemoveLinksWorkers(context.Background(), 10)
 	return s
 }
 
