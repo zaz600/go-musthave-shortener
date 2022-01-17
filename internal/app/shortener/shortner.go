@@ -80,9 +80,9 @@ func (s *Service) startRemoveLinksWorkers(ctx context.Context, count int) chan<-
 					err := s.repository.DeleteLinksByUID(ctx, req.uid, req.linkIDs...)
 					if err != nil {
 						log.Warn().Err(err).Strs("ids", req.linkIDs).Str("uid", req.uid).Msg("error delete user links")
-					} else {
-						log.Info().Str("uid", req.uid).Strs("ids", req.linkIDs).Msg("urls deleted")
+						continue
 					}
+					log.Info().Str("uid", req.uid).Strs("ids", req.linkIDs).Msg("urls deleted")
 				}
 			}
 		}()
