@@ -123,7 +123,6 @@ func (f *FileLinksRepository) DeleteLinksByUID(_ context.Context, uid string, li
 		}
 	}
 	return nil
-
 }
 
 // dump сохраняет длинную ссылку и ее идентификатор в файл
