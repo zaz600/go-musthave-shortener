@@ -19,11 +19,12 @@ func NewPgLinksRepository(ctx context.Context, databaseDSN string) (*PgLinksRepo
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
 	repo := PgLinksRepository{
 		conn: conn,
 	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	err = repo.migrate(ctx)
 	if err != nil {
 		return nil, err
@@ -49,8 +50,6 @@ func NewPgLinksRepository(ctx context.Context, databaseDSN string) (*PgLinksRepo
 // Get достает по linkID из БД информацию по сокращенной ссылке LinkEntity
 func (p *PgLinksRepository) Get(ctx context.Context, linkID string) (*LinkEntity, error) {
 	query := `select uid, original_url, link_id, removed  from shortener.links where link_id = $1`
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
 	var entity LinkEntity
 	result := p.conn.QueryRow(ctx, query, linkID)
 	err := result.Scan(&entity.UID, &entity.OriginalURL, &entity.ID, &entity.Removed)
@@ -72,8 +71,6 @@ WITH new_link AS (
     (SELECT link_id FROM new_link),
     (SELECT link_id FROM shortener.links WHERE original_url = $2)
 );`
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
 	var linkID string
 	err := p.conn.QueryRow(ctx, query, linkEntity.ID, linkEntity.OriginalURL, linkEntity.UID).Scan(&linkID)
 	if err != nil {
@@ -89,9 +86,6 @@ WITH new_link AS (
 
 // PutBatch сохраняет в БД список сокращенных ссылок. Все ссылки записываются в одной транзакции.
 func (p *PgLinksRepository) PutBatch(ctx context.Context, linkEntities []LinkEntity) error {
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-
 	tx, err := p.conn.Begin(ctx)
 	if err != nil {
 		return err
@@ -112,9 +106,6 @@ func (p *PgLinksRepository) PutBatch(ctx context.Context, linkEntities []LinkEnt
 // Count возвращает количество записей в репозитории.
 func (p *PgLinksRepository) Count(ctx context.Context) (int, error) {
 	query := `select count(*) from shortener.links`
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-
 	var count int
 	err := p.conn.QueryRow(ctx, query).Scan(&count)
 	if err != nil {
@@ -126,8 +117,6 @@ func (p *PgLinksRepository) Count(ctx context.Context) (int, error) {
 // FindLinksByUID возвращает ссылки по идентификатору пользователя
 func (p *PgLinksRepository) FindLinksByUID(ctx context.Context, uid string) ([]LinkEntity, error) {
 	query := `select uid, original_url, link_id  from shortener.links where uid=$1 and removed = false`
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
 
 	var result []LinkEntity
 	rows, err := p.conn.Query(ctx, query, uid)
@@ -173,15 +162,11 @@ func (p *PgLinksRepository) DeleteLinksByUID(ctx context.Context, uid string, li
 
 // Status статус подключения к хранилищу
 func (p *PgLinksRepository) Status(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
 	return p.conn.Ping(ctx)
 }
 
 // Close закрывает, все, что надо закрыть
 func (p *PgLinksRepository) Close(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
 	_ = p.conn.Deallocate(ctx, p.insertLinkStmt.Name)
 	return p.conn.Close(ctx)
 }
@@ -206,8 +191,6 @@ func (p *PgLinksRepository) migrate(ctx context.Context) error {
 		ALTER TABLE links ALTER COLUMN removed SET DEFAULT false;
 		CREATE UNIQUE INDEX IF NOT EXISTS original_url_idx ON links USING btree (original_url);
 		`
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
 	_, err := p.conn.Exec(ctx, migration)
 	return err
 }

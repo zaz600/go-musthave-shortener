@@ -102,7 +102,7 @@ func (f *FileLinksRepository) FindLinksByUID(_ context.Context, uid string) ([]L
 }
 
 // DeleteLinksByUID удаляет ссылки пользователя
-func (f *FileLinksRepository) DeleteLinksByUID(ctx context.Context, uid string, linkIDs ...string) error {
+func (f *FileLinksRepository) DeleteLinksByUID(_ context.Context, uid string, linkIDs ...string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 

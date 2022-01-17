@@ -39,7 +39,10 @@ func (s *Service) setupHandlers() {
 func (s *Service) GetOriginalURL() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		linkID := chi.URLParam(r, "linkID")
-		linkEntity, err := s.repository.Get(r.Context(), linkID)
+		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
+		defer cancel()
+
+		linkEntity, err := s.repository.Get(ctx, linkID)
 		if err != nil {
 			http.Error(w, "url not found", http.StatusBadRequest)
 			return
@@ -77,8 +80,11 @@ func (s *Service) ShortenURL() http.HandlerFunc {
 			s.logCookieError(r, err)
 			uid = random.UserID()
 		}
+		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
+		defer cancel()
+
 		linkEntity := repository.NewLinkEntity(originalURL, uid)
-		_, err = s.repository.PutIfAbsent(r.Context(), linkEntity)
+		_, err = s.repository.PutIfAbsent(ctx, linkEntity)
 		if err != nil {
 			var linkExistsErr *repository.LinkExistsError
 			if !errors.As(err, &linkExistsErr) {
@@ -115,8 +121,11 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 			s.logCookieError(r, err)
 			uid = random.UserID()
 		}
+		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
+		defer cancel()
+
 		linkEntity := repository.NewLinkEntity(originalURL, uid)
-		_, err = s.repository.PutIfAbsent(r.Context(), linkEntity)
+		_, err = s.repository.PutIfAbsent(ctx, linkEntity)
 		if err != nil {
 			var linkExistsErr *repository.LinkExistsError
 			if !errors.As(err, &linkExistsErr) {
@@ -212,7 +221,10 @@ func (s *Service) GetUserLinks() http.HandlerFunc {
 			http.Error(w, "no links", http.StatusNoContent)
 			return
 		}
-		links, err := s.repository.FindLinksByUID(r.Context(), uid)
+		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
+		defer cancel()
+
+		links, err := s.repository.FindLinksByUID(ctx, uid)
 		if err != nil {
 			log.Warn().Err(err).Str("uid", uid).Msg("")
 			http.Error(w, "internal error", http.StatusInternalServerError)
@@ -268,7 +280,10 @@ func (s *Service) DeleteUserLinks() http.HandlerFunc {
 
 func (s *Service) Ping() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		err := s.repository.Status(r.Context())
+		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
+		defer cancel()
+
+		err := s.repository.Status(ctx)
 		if err != nil {
 			http.Error(w, "pg connection error", http.StatusInternalServerError)
 			return

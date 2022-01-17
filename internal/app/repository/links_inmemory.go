@@ -11,7 +11,7 @@ type InMemoryLinksRepository struct {
 	db map[string]LinkEntity
 }
 
-func NewInMemoryLinksRepository(ctx context.Context, db map[string]LinkEntity) InMemoryLinksRepository {
+func NewInMemoryLinksRepository(_ context.Context, db map[string]LinkEntity) InMemoryLinksRepository {
 	if db == nil {
 		db = make(map[string]LinkEntity)
 	}
@@ -75,7 +75,7 @@ func (m InMemoryLinksRepository) FindLinksByUID(_ context.Context, uid string) (
 }
 
 // DeleteLinksByUID удаляет ссылки пользователя
-func (m InMemoryLinksRepository) DeleteLinksByUID(ctx context.Context, uid string, linkIDs ...string) error {
+func (m InMemoryLinksRepository) DeleteLinksByUID(_ context.Context, uid string, linkIDs ...string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

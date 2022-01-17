@@ -1,6 +1,8 @@
 package repository
 
-import "context"
+import (
+	"context"
+)
 
 type BatchWriter interface {
 	Add(ctx context.Context, e LinkEntity) error

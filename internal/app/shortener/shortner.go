@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
@@ -64,6 +65,9 @@ func (s *Service) logCookieError(r *http.Request, err error) {
 }
 
 func (s *Service) Shutdown(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
 	return s.repository.Close(ctx)
 }
 
