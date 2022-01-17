@@ -74,6 +74,7 @@ func (s *Service) startRemoveLinksWorkers(ctx context.Context, count int) chan<-
 			for {
 				select {
 				case <-ctx.Done():
+					log.Info().Msg("shutdown worker...")
 					return
 				case req := <-linkCh:
 					err := s.repository.DeleteLinksByUID(ctx, req.uid, req.linkIDs...)
