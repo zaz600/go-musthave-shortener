@@ -15,11 +15,10 @@ func NewInMemoryLinksRepository(ctx context.Context, db map[string]LinkEntity) I
 	if db == nil {
 		db = make(map[string]LinkEntity)
 	}
-	repo := InMemoryLinksRepository{
+	return InMemoryLinksRepository{
 		mu: &sync.RWMutex{},
 		db: db,
 	}
-	return repo
 }
 
 // Get достает по linkID из репозитория информацию по сокращенной ссылке LinkEntity
