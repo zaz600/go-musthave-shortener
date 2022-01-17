@@ -22,14 +22,14 @@ func NewInMemoryLinksRepository(ctx context.Context, db map[string]LinkEntity) I
 }
 
 // Get достает по linkID из репозитория информацию по сокращенной ссылке LinkEntity
-func (m InMemoryLinksRepository) Get(_ context.Context, linkID string) (LinkEntity, error) {
+func (m InMemoryLinksRepository) Get(_ context.Context, linkID string) (*LinkEntity, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	if entity, ok := m.db[linkID]; ok {
-		return entity, nil
+		return &entity, nil
 	}
-	return LinkEntity{}, fmt.Errorf("link with id '%s' not found", linkID)
+	return nil, fmt.Errorf("link with id '%s' not found", linkID)
 }
 
 // PutIfAbsent сохраняет в БД длинную ссылку, если такой там еще нет.

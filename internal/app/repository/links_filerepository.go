@@ -42,14 +42,14 @@ func NewFileLinksRepository(ctx context.Context, path string) (*FileLinksReposit
 }
 
 // Get достает по linkID из репозитория информацию по сокращенной ссылке LinkEntity
-func (f *FileLinksRepository) Get(_ context.Context, linkID string) (LinkEntity, error) {
+func (f *FileLinksRepository) Get(_ context.Context, linkID string) (*LinkEntity, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
 	if entity, ok := f.cache[linkID]; ok {
-		return entity, nil
+		return &entity, nil
 	}
-	return LinkEntity{}, fmt.Errorf("link with id '%s' not found", linkID)
+	return nil, fmt.Errorf("link with id '%s' not found", linkID)
 }
 
 // PutIfAbsent сохраняет в БД длинную ссылку, если такой там еще нет.

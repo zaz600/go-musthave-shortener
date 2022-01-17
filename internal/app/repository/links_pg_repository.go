@@ -47,7 +47,7 @@ func NewPgLinksRepository(ctx context.Context, databaseDSN string) (*PgLinksRepo
 }
 
 // Get достает по linkID из БД информацию по сокращенной ссылке LinkEntity
-func (p *PgLinksRepository) Get(ctx context.Context, linkID string) (LinkEntity, error) {
+func (p *PgLinksRepository) Get(ctx context.Context, linkID string) (*LinkEntity, error) {
 	query := `select uid, original_url, link_id, removed  from shortener.links where link_id = $1`
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
@@ -55,9 +55,9 @@ func (p *PgLinksRepository) Get(ctx context.Context, linkID string) (LinkEntity,
 	result := p.conn.QueryRow(ctx, query, linkID)
 	err := result.Scan(&entity.UID, &entity.OriginalURL, &entity.ID, &entity.Removed)
 	if err != nil {
-		return LinkEntity{}, err
+		return nil, err
 	}
-	return entity, nil
+	return &entity, nil
 }
 
 // PutIfAbsent сохраняет в БД длинную ссылку, если такой там еще нет.

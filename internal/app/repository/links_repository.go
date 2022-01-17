@@ -26,7 +26,7 @@ func NewLinkEntity(originalURL string, uid string) LinkEntity {
 
 type LinksRepository interface {
 	// Get достает по linkID из репозитория информацию по сокращенной ссылке LinkEntity
-	Get(ctx context.Context, linkID string) (LinkEntity, error)
+	Get(ctx context.Context, linkID string) (*LinkEntity, error)
 
 	// PutIfAbsent сохраняет в БД длинную ссылку, если такой там еще нет.
 	// Если длинная ссылка есть в БД, выбрасывает исключение LinkExistsError с идентификатором ее короткой ссылки.
