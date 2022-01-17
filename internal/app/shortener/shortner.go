@@ -70,19 +70,21 @@ func (s *Service) Shutdown(ctx context.Context) error {
 func (s *Service) startRemoveLinksWorkers(ctx context.Context, count int) chan<- removeUserLinksRequest {
 	linkCh := make(chan removeUserLinksRequest, count*2)
 	for i := 0; i < count; i++ {
+		workerID := fmt.Sprintf("RemoveLinksWorker#%d", i+1)
 		go func() {
+			log.Info().Str("worker", workerID).Msg("start remove links worker")
 			for {
 				select {
 				case <-ctx.Done():
-					log.Info().Msg("shutdown worker...")
+					log.Info().Str("worker", workerID).Msg("shutdown remove links worker...")
 					return
 				case req := <-linkCh:
 					err := s.repository.DeleteLinksByUID(ctx, req.uid, req.linkIDs...)
 					if err != nil {
-						log.Warn().Err(err).Strs("ids", req.linkIDs).Str("uid", req.uid).Msg("error delete user links")
+						log.Warn().Str("worker", workerID).Err(err).Strs("ids", req.linkIDs).Str("uid", req.uid).Msg("error delete user links")
 						continue
 					}
-					log.Info().Str("uid", req.uid).Strs("ids", req.linkIDs).Msg("urls deleted")
+					log.Info().Str("worker", workerID).Str("uid", req.uid).Strs("ids", req.linkIDs).Msg("urls deleted")
 				}
 			}
 		}()
