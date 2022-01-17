@@ -67,7 +67,7 @@ func (m InMemoryLinksRepository) Count(_ context.Context) (int, error) {
 func (m InMemoryLinksRepository) FindLinksByUID(_ context.Context, uid string) ([]LinkEntity, error) {
 	result := make([]LinkEntity, 0, 100)
 	for _, entity := range m.db {
-		if entity.UID == uid && !entity.Removed {
+		if entity.IsOwnedByUser(uid) {
 			result = append(result, entity)
 		}
 	}

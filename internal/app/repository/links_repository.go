@@ -24,6 +24,10 @@ func NewLinkEntity(originalURL string, uid string) LinkEntity {
 	}
 }
 
+func (e LinkEntity) IsOwnedByUser(uid string) bool {
+	return e.UID == uid && !e.Removed
+}
+
 type LinksRepository interface {
 	// Get достает по linkID из репозитория информацию по сокращенной ссылке LinkEntity
 	Get(ctx context.Context, linkID string) (*LinkEntity, error)

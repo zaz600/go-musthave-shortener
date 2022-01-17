@@ -94,7 +94,7 @@ func (f *FileLinksRepository) Count(_ context.Context) (int, error) {
 func (f *FileLinksRepository) FindLinksByUID(_ context.Context, uid string) ([]LinkEntity, error) {
 	result := make([]LinkEntity, 0, 100)
 	for _, entity := range f.cache {
-		if entity.UID == uid && !entity.Removed {
+		if entity.IsOwnedByUser(uid) {
 			result = append(result, entity)
 		}
 	}
