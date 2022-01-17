@@ -83,12 +83,17 @@ func (s *Service) startRemoveLinksWorkers(ctx context.Context, count int) chan<-
 					log.Info().Str("worker", workerID).Msg("shutdown remove links worker...")
 					return
 				case req := <-linkCh:
-					err := s.repository.DeleteLinksByUID(ctx, req.uid, req.linkIDs...)
-					if err != nil {
-						log.Warn().Str("worker", workerID).Err(err).Strs("ids", req.linkIDs).Str("uid", req.uid).Msg("error delete user links")
-						continue
-					}
-					log.Info().Str("worker", workerID).Str("uid", req.uid).Strs("ids", req.linkIDs).Msg("urls deleted")
+					func() {
+						ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+						defer cancel()
+
+						err := s.repository.DeleteLinksByUID(ctx, req.uid, req.linkIDs...)
+						if err != nil {
+							log.Warn().Str("worker", workerID).Err(err).Strs("ids", req.linkIDs).Str("uid", req.uid).Msg("error delete user links")
+							return
+						}
+						log.Info().Str("worker", workerID).Str("uid", req.uid).Strs("ids", req.linkIDs).Msg("urls deleted")
+					}()
 				}
 			}
 		}()
