@@ -24,8 +24,12 @@ func NewLinkEntity(originalURL string, uid string) LinkEntity {
 	}
 }
 
+func (e LinkEntity) IsOwnedByUserAndExists(uid string) bool {
+	return e.IsOwnedByUser(uid) && !e.Removed
+}
+
 func (e LinkEntity) IsOwnedByUser(uid string) bool {
-	return e.UID == uid && !e.Removed
+	return e.UID == uid
 }
 
 type LinksRepository interface {

@@ -67,7 +67,7 @@ func (m InMemoryLinksRepository) Count(_ context.Context) (int, error) {
 func (m InMemoryLinksRepository) FindLinksByUID(_ context.Context, uid string) ([]LinkEntity, error) {
 	result := make([]LinkEntity, 0, 100)
 	for _, entity := range m.db {
-		if entity.IsOwnedByUser(uid) {
+		if entity.IsOwnedByUserAndExists(uid) {
 			result = append(result, entity)
 		}
 	}
@@ -81,7 +81,11 @@ func (m InMemoryLinksRepository) DeleteLinksByUID(_ context.Context, uid string,
 
 	for _, id := range linkIDs {
 		entity, ok := m.db[id]
-		if !(ok && entity.UID == uid) {
+		if !ok {
+			// такого айди не в хранилище, пока просто его пропустим
+			continue
+		}
+		if !entity.IsOwnedByUser(uid) {
 			// тут возможно надо обработать, что пытаются удалить чужой линк, но пока просто его пропустим
 			continue
 		}

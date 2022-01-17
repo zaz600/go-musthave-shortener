@@ -94,7 +94,7 @@ func (f *FileLinksRepository) Count(_ context.Context) (int, error) {
 func (f *FileLinksRepository) FindLinksByUID(_ context.Context, uid string) ([]LinkEntity, error) {
 	result := make([]LinkEntity, 0, 100)
 	for _, entity := range f.cache {
-		if entity.IsOwnedByUser(uid) {
+		if entity.IsOwnedByUserAndExists(uid) {
 			result = append(result, entity)
 		}
 	}
@@ -108,7 +108,11 @@ func (f *FileLinksRepository) DeleteLinksByUID(_ context.Context, uid string, li
 
 	for _, id := range linkIDs {
 		linkEntity, ok := f.cache[id]
-		if !(ok && linkEntity.UID == uid) {
+		if !ok {
+			// такого айди не в хранилище, пока просто его пропустим
+			continue
+		}
+		if !linkEntity.IsOwnedByUser(uid) {
 			// тут возможно надо обработать, что пытаются удалить чужой линк, но пока просто его пропустим
 			continue
 		}
