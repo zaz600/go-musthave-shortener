@@ -42,7 +42,7 @@ type LinksRepository interface {
 	FindLinksByUID(ctx context.Context, uid string) ([]LinkEntity, error)
 
 	// DeleteLinksByUID отложенно запускает удаление ссылок пользователя
-	DeleteLinksByUID(ctx context.Context, uid string, ids []string) error
+	DeleteLinksByUID(ctx context.Context, uid string, linkIDs ...string) error
 
 	// Status статус подключения к хранилищу
 	Status(ctx context.Context) error

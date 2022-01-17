@@ -76,11 +76,11 @@ func (m InMemoryLinksRepository) FindLinksByUID(_ context.Context, uid string) (
 }
 
 // DeleteLinksByUID удаляет ссылки пользователя
-func (m InMemoryLinksRepository) DeleteLinksByUID(ctx context.Context, uid string, ids []string) error {
+func (m InMemoryLinksRepository) DeleteLinksByUID(ctx context.Context, uid string, linkIDs ...string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	for _, id := range ids {
+	for _, id := range linkIDs {
 		entity, ok := m.db[id]
 		if !(ok && entity.UID == uid) {
 			// тут возможно надо обработать, что пытаются удалить чужой линк, но пока просто его пропустим

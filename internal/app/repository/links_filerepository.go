@@ -102,11 +102,11 @@ func (f *FileLinksRepository) FindLinksByUID(_ context.Context, uid string) ([]L
 }
 
 // DeleteLinksByUID удаляет ссылки пользователя
-func (f *FileLinksRepository) DeleteLinksByUID(ctx context.Context, uid string, ids []string) error {
+func (f *FileLinksRepository) DeleteLinksByUID(ctx context.Context, uid string, linkIDs ...string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	for _, id := range ids {
+	for _, id := range linkIDs {
 		linkEntity, ok := f.cache[id]
 		if !(ok && linkEntity.UID == uid) {
 			// тут возможно надо обработать, что пытаются удалить чужой линк, но пока просто его пропустим
