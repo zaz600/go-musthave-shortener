@@ -11,7 +11,7 @@ type InMemoryLinksRepository struct {
 	db map[string]LinkEntity
 }
 
-func NewInMemoryLinksRepository(db map[string]LinkEntity) InMemoryLinksRepository {
+func NewInMemoryLinksRepository(_ context.Context, db map[string]LinkEntity) InMemoryLinksRepository {
 	if db == nil {
 		db = make(map[string]LinkEntity)
 	}
@@ -22,14 +22,14 @@ func NewInMemoryLinksRepository(db map[string]LinkEntity) InMemoryLinksRepositor
 }
 
 // Get достает по linkID из репозитория информацию по сокращенной ссылке LinkEntity
-func (m InMemoryLinksRepository) Get(_ context.Context, linkID string) (LinkEntity, error) {
+func (m InMemoryLinksRepository) Get(_ context.Context, linkID string) (*LinkEntity, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	if entity, ok := m.db[linkID]; ok {
-		return entity, nil
+		return &entity, nil
 	}
-	return LinkEntity{}, fmt.Errorf("link with id '%s' not found", linkID)
+	return nil, fmt.Errorf("link with id '%s' not found", linkID)
 }
 
 // PutIfAbsent сохраняет в БД длинную ссылку, если такой там еще нет.
@@ -67,11 +67,32 @@ func (m InMemoryLinksRepository) Count(_ context.Context) (int, error) {
 func (m InMemoryLinksRepository) FindLinksByUID(_ context.Context, uid string) ([]LinkEntity, error) {
 	result := make([]LinkEntity, 0, 100)
 	for _, entity := range m.db {
-		if entity.UID == uid {
+		if entity.IsOwnedByUserAndExists(uid) {
 			result = append(result, entity)
 		}
 	}
 	return result, nil
+}
+
+// DeleteLinksByUID удаляет ссылки пользователя
+func (m InMemoryLinksRepository) DeleteLinksByUID(_ context.Context, uid string, linkIDs ...string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, id := range linkIDs {
+		entity, ok := m.db[id]
+		if !ok {
+			// такого айди не в хранилище, пока просто его пропустим
+			continue
+		}
+		if !entity.IsOwnedByUser(uid) {
+			// тут возможно надо обработать, что пытаются удалить чужой линк, но пока просто его пропустим
+			continue
+		}
+		entity.Removed = true
+		m.db[id] = entity
+	}
+	return nil
 }
 
 // Status статус подключения к хранилищу

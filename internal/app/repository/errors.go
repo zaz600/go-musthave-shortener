@@ -1,6 +1,8 @@
 package repository
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // LinkExistsError говорит о том, что в хранилище уже есть ссылка,
 // которую пытаются сократить повторно.

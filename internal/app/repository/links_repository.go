@@ -13,6 +13,7 @@ type LinkEntity struct {
 	OriginalURL   string `json:"original_url"`
 	UID           string `json:"uid,omitempty"`
 	CorrelationID string `json:"correlation_id,omitempty"`
+	Removed       bool   `json:"-"`
 }
 
 func NewLinkEntity(originalURL string, uid string) LinkEntity {
@@ -23,9 +24,17 @@ func NewLinkEntity(originalURL string, uid string) LinkEntity {
 	}
 }
 
+func (e LinkEntity) IsOwnedByUserAndExists(uid string) bool {
+	return e.IsOwnedByUser(uid) && !e.Removed
+}
+
+func (e LinkEntity) IsOwnedByUser(uid string) bool {
+	return e.UID == uid
+}
+
 type LinksRepository interface {
 	// Get достает по linkID из репозитория информацию по сокращенной ссылке LinkEntity
-	Get(ctx context.Context, linkID string) (LinkEntity, error)
+	Get(ctx context.Context, linkID string) (*LinkEntity, error)
 
 	// PutIfAbsent сохраняет в БД длинную ссылку, если такой там еще нет.
 	// Если длинная ссылка есть в БД, выбрасывает исключение LinkExistsError с идентификатором ее короткой ссылки.
@@ -39,6 +48,9 @@ type LinksRepository interface {
 
 	// FindLinksByUID возвращает ссылки по идентификатору пользователя
 	FindLinksByUID(ctx context.Context, uid string) ([]LinkEntity, error)
+
+	// DeleteLinksByUID отложенно запускает удаление ссылок пользователя
+	DeleteLinksByUID(ctx context.Context, uid string, linkIDs ...string) error
 
 	// Status статус подключения к хранилищу
 	Status(ctx context.Context) error
@@ -65,7 +77,7 @@ func NewRepository(ctx context.Context, cfg *config.ShortenConfig) (LinksReposit
 		}
 	default:
 		log.Info().Msg("MemoryRepository")
-		repo = NewInMemoryLinksRepository(nil)
+		repo = NewInMemoryLinksRepository(context.Background(), nil)
 	}
 
 	return repo, nil

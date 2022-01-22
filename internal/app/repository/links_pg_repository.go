@@ -11,6 +11,7 @@ import (
 type PgLinksRepository struct {
 	conn           *pgx.Conn
 	insertLinkStmt *pgconn.StatementDescription
+	removeLinkStmt *pgconn.StatementDescription
 }
 
 func NewPgLinksRepository(ctx context.Context, databaseDSN string) (*PgLinksRepository, error) {
@@ -18,36 +19,44 @@ func NewPgLinksRepository(ctx context.Context, databaseDSN string) (*PgLinksRepo
 	if err != nil {
 		return nil, err
 	}
-	query := `insert into shortener.links(link_id, original_url, uid) values($1, $2, $3)`
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
 	repo := PgLinksRepository{
 		conn: conn,
 	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	err = repo.migrate(ctx)
 	if err != nil {
 		return nil, err
 	}
-	stmt, err := conn.Prepare(ctx, "insert link", query)
+
+	queryInsert := `insert into shortener.links(link_id, original_url, uid) values($1, $2, $3)`
+	stmtInsert, err := conn.Prepare(ctx, "insert link", queryInsert)
 	if err != nil {
 		return nil, err
 	}
-	repo.insertLinkStmt = stmt
+	repo.insertLinkStmt = stmtInsert
+
+	queryRemove := `update shortener.links set removed=true where uid=$1 and link_id = any($2)`
+	stmtRemove, err := conn.Prepare(ctx, "remove links", queryRemove)
+	if err != nil {
+		return nil, err
+	}
+	repo.removeLinkStmt = stmtRemove
+
 	return &repo, nil
 }
 
 // Get достает по linkID из БД информацию по сокращенной ссылке LinkEntity
-func (p *PgLinksRepository) Get(ctx context.Context, linkID string) (LinkEntity, error) {
-	query := `select uid, original_url, link_id  from shortener.links where link_id = $1`
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
+func (p *PgLinksRepository) Get(ctx context.Context, linkID string) (*LinkEntity, error) {
+	query := `select uid, original_url, link_id, removed  from shortener.links where link_id = $1`
 	var entity LinkEntity
 	result := p.conn.QueryRow(ctx, query, linkID)
-	err := result.Scan(&entity.UID, &entity.OriginalURL, &entity.ID)
+	err := result.Scan(&entity.UID, &entity.OriginalURL, &entity.ID, &entity.Removed)
 	if err != nil {
-		return LinkEntity{}, err
+		return nil, err
 	}
-	return entity, nil
+	return &entity, nil
 }
 
 // PutIfAbsent сохраняет в БД длинную ссылку, если такой там еще нет.
@@ -62,8 +71,6 @@ WITH new_link AS (
     (SELECT link_id FROM new_link),
     (SELECT link_id FROM shortener.links WHERE original_url = $2)
 );`
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
 	var linkID string
 	err := p.conn.QueryRow(ctx, query, linkEntity.ID, linkEntity.OriginalURL, linkEntity.UID).Scan(&linkID)
 	if err != nil {
@@ -79,9 +86,6 @@ WITH new_link AS (
 
 // PutBatch сохраняет в БД список сокращенных ссылок. Все ссылки записываются в одной транзакции.
 func (p *PgLinksRepository) PutBatch(ctx context.Context, linkEntities []LinkEntity) error {
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-
 	tx, err := p.conn.Begin(ctx)
 	if err != nil {
 		return err
@@ -102,9 +106,6 @@ func (p *PgLinksRepository) PutBatch(ctx context.Context, linkEntities []LinkEnt
 // Count возвращает количество записей в репозитории.
 func (p *PgLinksRepository) Count(ctx context.Context) (int, error) {
 	query := `select count(*) from shortener.links`
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-
 	var count int
 	err := p.conn.QueryRow(ctx, query).Scan(&count)
 	if err != nil {
@@ -115,9 +116,7 @@ func (p *PgLinksRepository) Count(ctx context.Context) (int, error) {
 
 // FindLinksByUID возвращает ссылки по идентификатору пользователя
 func (p *PgLinksRepository) FindLinksByUID(ctx context.Context, uid string) ([]LinkEntity, error) {
-	query := `select uid, original_url, link_id  from shortener.links where uid=$1`
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
+	query := `select uid, original_url, link_id  from shortener.links where uid=$1 and removed = false`
 
 	var result []LinkEntity
 	rows, err := p.conn.Query(ctx, query, uid)
@@ -139,17 +138,32 @@ func (p *PgLinksRepository) FindLinksByUID(ctx context.Context, uid string) ([]L
 	return result, nil
 }
 
+// DeleteLinksByUID удаляет ссылки пользователя
+func (p *PgLinksRepository) DeleteLinksByUID(ctx context.Context, uid string, linkIDs ...string) error {
+	// TODO надо бить ids на чанки по 1024- штуки
+	tx, err := p.conn.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	_, err = tx.Exec(ctx, p.removeLinkStmt.Name, uid, linkIDs)
+	if err != nil {
+		return err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Status статус подключения к хранилищу
 func (p *PgLinksRepository) Status(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
 	return p.conn.Ping(ctx)
 }
 
 // Close закрывает, все, что надо закрыть
 func (p *PgLinksRepository) Close(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
 	_ = p.conn.Deallocate(ctx, p.insertLinkStmt.Name)
 	return p.conn.Close(ctx)
 }
@@ -167,13 +181,13 @@ func (p *PgLinksRepository) migrate(ctx context.Context) error {
   			link_id varchar,
   			original_url varchar,
   			uid varchar,
-  			created_at TIMESTAMP
+  			created_at TIMESTAMP,
+			removed boolean
 		);
 		ALTER TABLE links ALTER COLUMN created_at SET DEFAULT now();
+		ALTER TABLE links ALTER COLUMN removed SET DEFAULT false;
 		CREATE UNIQUE INDEX IF NOT EXISTS original_url_idx ON links USING btree (original_url);
 		`
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
 	_, err := p.conn.Exec(ctx, migration)
 	return err
 }

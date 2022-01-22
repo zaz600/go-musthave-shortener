@@ -11,7 +11,7 @@ import (
 
 func TestBatchService_Add(t *testing.T) {
 	batchSize := 5
-	repo := NewInMemoryLinksRepository(nil)
+	repo := NewInMemoryLinksRepository(context.Background(), nil)
 	batch := NewBatchService(batchSize, repo)
 	for i := 0; i < batchSize; i++ {
 		err := batch.Add(context.Background(), NewLinkEntity(fmt.Sprintf("http://ya.ru/?%d", i), "123456"))
@@ -36,7 +36,7 @@ func TestBatchService_Add(t *testing.T) {
 func TestBatchService_Flush(t *testing.T) {
 	batchSize := 5
 	nRec := 2
-	repo := NewInMemoryLinksRepository(nil)
+	repo := NewInMemoryLinksRepository(context.Background(), nil)
 	batch := NewBatchService(batchSize, repo)
 	for i := 0; i < nRec; i++ {
 		err := batch.Add(context.Background(), NewLinkEntity(fmt.Sprintf("http://ya.ru/?%d", i), "123456"))

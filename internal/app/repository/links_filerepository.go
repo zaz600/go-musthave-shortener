@@ -42,14 +42,14 @@ func NewFileLinksRepository(ctx context.Context, path string) (*FileLinksReposit
 }
 
 // Get достает по linkID из репозитория информацию по сокращенной ссылке LinkEntity
-func (f *FileLinksRepository) Get(_ context.Context, linkID string) (LinkEntity, error) {
+func (f *FileLinksRepository) Get(_ context.Context, linkID string) (*LinkEntity, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
 	if entity, ok := f.cache[linkID]; ok {
-		return entity, nil
+		return &entity, nil
 	}
-	return LinkEntity{}, fmt.Errorf("link with id '%s' not found", linkID)
+	return nil, fmt.Errorf("link with id '%s' not found", linkID)
 }
 
 // PutIfAbsent сохраняет в БД длинную ссылку, если такой там еще нет.
@@ -94,11 +94,35 @@ func (f *FileLinksRepository) Count(_ context.Context) (int, error) {
 func (f *FileLinksRepository) FindLinksByUID(_ context.Context, uid string) ([]LinkEntity, error) {
 	result := make([]LinkEntity, 0, 100)
 	for _, entity := range f.cache {
-		if entity.UID == uid {
+		if entity.IsOwnedByUserAndExists(uid) {
 			result = append(result, entity)
 		}
 	}
 	return result, nil
+}
+
+// DeleteLinksByUID удаляет ссылки пользователя
+func (f *FileLinksRepository) DeleteLinksByUID(_ context.Context, uid string, linkIDs ...string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	for _, id := range linkIDs {
+		linkEntity, ok := f.cache[id]
+		if !ok {
+			// такого айди не в хранилище, пока просто его пропустим
+			continue
+		}
+		if !linkEntity.IsOwnedByUser(uid) {
+			// тут возможно надо обработать, что пытаются удалить чужой линк, но пока просто его пропустим
+			continue
+		}
+		linkEntity.Removed = true
+		f.cache[id] = linkEntity
+		if err := f.dump(linkEntity); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // dump сохраняет длинную ссылку и ее идентификатор в файл
