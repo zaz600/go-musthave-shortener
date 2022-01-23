@@ -2,28 +2,30 @@ package repository
 
 import (
 	"context"
+
+	"github.com/zaz600/go-musthave-shortener/internal/entity"
 )
 
 type BatchWriter interface {
-	Add(ctx context.Context, e LinkEntity) error
+	Add(ctx context.Context, e entity.LinkEntity) error
 	Flush(ctx context.Context) error
 }
 
 type BatchService struct {
 	batchSize  int
-	buffer     []LinkEntity
+	buffer     []entity.LinkEntity
 	repository LinksRepository
 }
 
 func NewBatchService(batchSize int, repository LinksRepository) *BatchService {
 	return &BatchService{
 		batchSize:  batchSize,
-		buffer:     make([]LinkEntity, 0, batchSize),
+		buffer:     make([]entity.LinkEntity, 0, batchSize),
 		repository: repository,
 	}
 }
 
-func (b *BatchService) Add(ctx context.Context, e LinkEntity) error {
+func (b *BatchService) Add(ctx context.Context, e entity.LinkEntity) error {
 	b.buffer = append(b.buffer, e)
 	if cap(b.buffer) == len(b.buffer) {
 		if err := b.Flush(ctx); err != nil {

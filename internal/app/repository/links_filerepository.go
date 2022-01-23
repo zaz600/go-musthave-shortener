@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/rs/zerolog/log"
+	"github.com/zaz600/go-musthave-shortener/internal/entity"
 )
 
 type FileLinksRepository struct {
@@ -17,7 +18,7 @@ type FileLinksRepository struct {
 	file            *os.File
 	encoder         *json.Encoder
 	mu              *sync.RWMutex
-	cache           map[string]LinkEntity
+	cache           map[string]entity.LinkEntity
 }
 
 func NewFileLinksRepository(ctx context.Context, path string) (*FileLinksRepository, error) {
@@ -32,7 +33,7 @@ func NewFileLinksRepository(ctx context.Context, path string) (*FileLinksReposit
 		encoder:         json.NewEncoder(file),
 
 		mu:    &sync.RWMutex{},
-		cache: make(map[string]LinkEntity),
+		cache: make(map[string]entity.LinkEntity),
 	}
 
 	if err = repo.loadCache(ctx); err != nil {
@@ -41,38 +42,38 @@ func NewFileLinksRepository(ctx context.Context, path string) (*FileLinksReposit
 	return repo, nil
 }
 
-// Get достает по linkID из репозитория информацию по сокращенной ссылке LinkEntity
-func (f *FileLinksRepository) Get(_ context.Context, linkID string) (*LinkEntity, error) {
+// Get достает по linkID из репозитория информацию по сокращенной ссылке entity.LinkEntity
+func (f *FileLinksRepository) Get(_ context.Context, linkID string) (*entity.LinkEntity, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
-	if entity, ok := f.cache[linkID]; ok {
-		return &entity, nil
+	if e, ok := f.cache[linkID]; ok {
+		return &e, nil
 	}
 	return nil, fmt.Errorf("link with id '%s' not found", linkID)
 }
 
 // PutIfAbsent сохраняет в БД длинную ссылку, если такой там еще нет.
 // Если длинная ссылка есть в БД, выбрасывает исключение LinkExistsError с идентификатором ее короткой ссылки.
-func (f *FileLinksRepository) PutIfAbsent(_ context.Context, linkEntity LinkEntity) (LinkEntity, error) {
+func (f *FileLinksRepository) PutIfAbsent(_ context.Context, linkEntity entity.LinkEntity) (entity.LinkEntity, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	for _, entity := range f.cache {
-		if entity.OriginalURL == linkEntity.OriginalURL {
-			return LinkEntity{}, NewLinkExistsError(entity.ID)
+	for _, e := range f.cache {
+		if e.OriginalURL == linkEntity.OriginalURL {
+			return entity.LinkEntity{}, NewLinkExistsError(e.ID)
 		}
 	}
 
 	f.cache[linkEntity.ID] = linkEntity
 	if err := f.dump(linkEntity); err != nil {
-		return LinkEntity{}, err
+		return entity.LinkEntity{}, err
 	}
 	return linkEntity, nil
 }
 
 // PutBatch сохраняет в хранилище список сокращенных ссылок. Все ссылки записываются в одной транзакции.
-func (f *FileLinksRepository) PutBatch(_ context.Context, linkEntities []LinkEntity) error {
+func (f *FileLinksRepository) PutBatch(_ context.Context, linkEntities []entity.LinkEntity) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -91,11 +92,11 @@ func (f *FileLinksRepository) Count(_ context.Context) (int, error) {
 }
 
 // FindLinksByUID возвращает ссылки по идентификатору пользователя
-func (f *FileLinksRepository) FindLinksByUID(_ context.Context, uid string) ([]LinkEntity, error) {
-	result := make([]LinkEntity, 0, 100)
-	for _, entity := range f.cache {
-		if entity.IsOwnedByUserAndExists(uid) {
-			result = append(result, entity)
+func (f *FileLinksRepository) FindLinksByUID(_ context.Context, uid string) ([]entity.LinkEntity, error) {
+	result := make([]entity.LinkEntity, 0, 100)
+	for _, e := range f.cache {
+		if e.IsOwnedByUserAndExists(uid) {
+			result = append(result, e)
 		}
 	}
 	return result, nil
@@ -126,7 +127,7 @@ func (f *FileLinksRepository) DeleteLinksByUID(_ context.Context, uid string, li
 }
 
 // dump сохраняет длинную ссылку и ее идентификатор в файл
-func (f *FileLinksRepository) dump(item LinkEntity) error {
+func (f *FileLinksRepository) dump(item entity.LinkEntity) error {
 	defer func(file *os.File) {
 		_ = file.Sync()
 	}(f.file)
@@ -141,14 +142,14 @@ func (f *FileLinksRepository) dump(item LinkEntity) error {
 func (f *FileLinksRepository) loadCache(ctx context.Context) error {
 	decoder := json.NewDecoder(f.file)
 	for {
-		entity := LinkEntity{}
-		if err := decoder.Decode(&entity); err != nil {
+		e := entity.LinkEntity{}
+		if err := decoder.Decode(&e); err != nil {
 			if errors.Is(err, io.EOF) {
 				break
 			}
 			return err
 		}
-		f.cache[entity.ID] = entity
+		f.cache[e.ID] = e
 	}
 	count, _ := f.Count(ctx)
 	log.Info().Msgf("load %d records from storage", count)

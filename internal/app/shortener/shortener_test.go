@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zaz600/go-musthave-shortener/internal/app/repository"
+	"github.com/zaz600/go-musthave-shortener/internal/entity"
 )
 
 const baseURL = "http://localhost:8080"
@@ -61,13 +62,13 @@ func TestService_Get(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		db          map[string]repository.LinkEntity
+		db          map[string]entity.LinkEntity
 		queryString string
 		want        want
 	}{
 		{
 			name: "id exists",
-			db: map[string]repository.LinkEntity{
+			db: map[string]entity.LinkEntity{
 				"1": {
 					ID:          "1",
 					OriginalURL: "http://ya.ru/123",
@@ -82,7 +83,7 @@ func TestService_Get(t *testing.T) {
 		},
 		{
 			name: "id does not exists",
-			db: map[string]repository.LinkEntity{
+			db: map[string]entity.LinkEntity{
 				"1": {
 					ID:          "1",
 					OriginalURL: "http://ya.ru/123",
@@ -121,7 +122,7 @@ func TestService_Post(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		db          map[string]repository.LinkEntity
+		db          map[string]entity.LinkEntity
 		queryString string
 		body        []byte
 		want        want
@@ -129,7 +130,7 @@ func TestService_Post(t *testing.T) {
 	}{
 		{
 			name: "correct url",
-			db: map[string]repository.LinkEntity{
+			db: map[string]entity.LinkEntity{
 				"100": {
 					ID:          "100",
 					OriginalURL: "http://ya.ru/123",
@@ -146,7 +147,7 @@ func TestService_Post(t *testing.T) {
 		},
 		{
 			name: "incorrect url",
-			db: map[string]repository.LinkEntity{
+			db: map[string]entity.LinkEntity{
 				"100": {
 					ID:          "100",
 					OriginalURL: "http://ya.ru/123",
@@ -198,7 +199,7 @@ func TestService_SuccessPath(t *testing.T) {
 		contentType: "text/html; charset=utf-8",
 	}
 
-	db := map[string]repository.LinkEntity{
+	db := map[string]entity.LinkEntity{
 		"100": {
 			ID:          "100",
 			OriginalURL: "http://ya.ru/123",
@@ -226,7 +227,7 @@ func TestService_SuccessPath(t *testing.T) {
 }
 
 func TestService_PostMultiple(t *testing.T) {
-	db := map[string]repository.LinkEntity{
+	db := map[string]entity.LinkEntity{
 		"100": {
 			ID:          "100",
 			OriginalURL: "http://ya.ru/123",
@@ -248,7 +249,7 @@ func TestService_PostMultiple(t *testing.T) {
 
 func TestService_PostExist(t *testing.T) {
 	longURL := "http://ya.ru/123"
-	db := map[string]repository.LinkEntity{
+	db := map[string]entity.LinkEntity{
 		"100": {
 			ID:          "100",
 			OriginalURL: longURL,
@@ -268,7 +269,7 @@ func TestService_PostExist(t *testing.T) {
 func TestService_PostJSONExist(t *testing.T) {
 	longURL := "http://ya.ru/123"
 
-	db := map[string]repository.LinkEntity{
+	db := map[string]entity.LinkEntity{
 		"100": {
 			ID:          "100",
 			OriginalURL: longURL,
@@ -288,7 +289,7 @@ func TestService_PostJSONExist(t *testing.T) {
 
 func TestService_GetUserLinks(t *testing.T) {
 	longURL := `https://yandex.ru/search/?lr=2&text=abc`
-	db := map[string]repository.LinkEntity{
+	db := map[string]entity.LinkEntity{
 		"100": {
 			ID:          "100",
 			OriginalURL: "http://ya.ru/123",
@@ -327,7 +328,7 @@ func TestService_Post_JSON(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		db          map[string]repository.LinkEntity
+		db          map[string]entity.LinkEntity
 		queryString string
 		body        []byte
 		contentType string
@@ -336,7 +337,7 @@ func TestService_Post_JSON(t *testing.T) {
 	}{
 		{
 			name: "correct url",
-			db: map[string]repository.LinkEntity{
+			db: map[string]entity.LinkEntity{
 				"100": {
 					ID:          "100",
 					OriginalURL: "http://ya.ru/123",
@@ -353,7 +354,7 @@ func TestService_Post_JSON(t *testing.T) {
 		},
 		{
 			name: "incorrect url",
-			db: map[string]repository.LinkEntity{
+			db: map[string]entity.LinkEntity{
 				"100": {
 					ID:          "100",
 					OriginalURL: "http://ya.ru/123",
@@ -370,7 +371,7 @@ func TestService_Post_JSON(t *testing.T) {
 		},
 		{
 			name: "invalid json",
-			db: map[string]repository.LinkEntity{
+			db: map[string]entity.LinkEntity{
 				"100": {
 					ID:          "100",
 					OriginalURL: "http://ya.ru/123",
@@ -387,7 +388,7 @@ func TestService_Post_JSON(t *testing.T) {
 		},
 		{
 			name: "missing field",
-			db: map[string]repository.LinkEntity{
+			db: map[string]entity.LinkEntity{
 				"100": {
 					ID:          "100",
 					OriginalURL: "http://ya.ru/123",
@@ -440,7 +441,7 @@ func TestService_Post_Batch(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		db          map[string]repository.LinkEntity
+		db          map[string]entity.LinkEntity
 		queryString string
 		body        []byte
 		contentType string
@@ -449,7 +450,7 @@ func TestService_Post_Batch(t *testing.T) {
 	}{
 		{
 			name: "correct url",
-			db: map[string]repository.LinkEntity{
+			db: map[string]entity.LinkEntity{
 				"100": {
 					ID:          "100",
 					OriginalURL: "http://ya.ru/123",
@@ -489,7 +490,7 @@ func TestService_Post_Batch(t *testing.T) {
 }
 
 func TestService_DeleteUserLinks(t *testing.T) {
-	db := map[string]repository.LinkEntity{
+	db := map[string]entity.LinkEntity{
 		"100": {
 			ID:          "100",
 			OriginalURL: "http://ya.ru/123",

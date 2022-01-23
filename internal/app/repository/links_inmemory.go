@@ -4,16 +4,18 @@ import (
 	"context"
 	"fmt"
 	"sync"
+
+	"github.com/zaz600/go-musthave-shortener/internal/entity"
 )
 
 type InMemoryLinksRepository struct {
 	mu *sync.RWMutex
-	db map[string]LinkEntity
+	db map[string]entity.LinkEntity
 }
 
-func NewInMemoryLinksRepository(_ context.Context, db map[string]LinkEntity) InMemoryLinksRepository {
+func NewInMemoryLinksRepository(_ context.Context, db map[string]entity.LinkEntity) InMemoryLinksRepository {
 	if db == nil {
-		db = make(map[string]LinkEntity)
+		db = make(map[string]entity.LinkEntity)
 	}
 	return InMemoryLinksRepository{
 		mu: &sync.RWMutex{},
@@ -21,26 +23,26 @@ func NewInMemoryLinksRepository(_ context.Context, db map[string]LinkEntity) InM
 	}
 }
 
-// Get достает по linkID из репозитория информацию по сокращенной ссылке LinkEntity
-func (m InMemoryLinksRepository) Get(_ context.Context, linkID string) (*LinkEntity, error) {
+// Get достает по linkID из репозитория информацию по сокращенной ссылке entity.LinkEntity
+func (m InMemoryLinksRepository) Get(_ context.Context, linkID string) (*entity.LinkEntity, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	if entity, ok := m.db[linkID]; ok {
-		return &entity, nil
+	if e, ok := m.db[linkID]; ok {
+		return &e, nil
 	}
 	return nil, fmt.Errorf("link with id '%s' not found", linkID)
 }
 
 // PutIfAbsent сохраняет в БД длинную ссылку, если такой там еще нет.
 // Если длинная ссылка есть в БД, выбрасывает исключение LinkExistsError с идентификатором ее короткой ссылки.
-func (m InMemoryLinksRepository) PutIfAbsent(_ context.Context, linkEntity LinkEntity) (LinkEntity, error) {
+func (m InMemoryLinksRepository) PutIfAbsent(_ context.Context, linkEntity entity.LinkEntity) (entity.LinkEntity, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	for _, entity := range m.db {
-		if entity.OriginalURL == linkEntity.OriginalURL {
-			return LinkEntity{}, NewLinkExistsError(entity.ID)
+	for _, e := range m.db {
+		if e.OriginalURL == linkEntity.OriginalURL {
+			return entity.LinkEntity{}, NewLinkExistsError(e.ID)
 		}
 	}
 
@@ -49,11 +51,11 @@ func (m InMemoryLinksRepository) PutIfAbsent(_ context.Context, linkEntity LinkE
 }
 
 // PutBatch сохраняет в хранилище список сокращенных ссылок. Все ссылки записываются в одной транзакции.
-func (m InMemoryLinksRepository) PutBatch(_ context.Context, linkEntities []LinkEntity) error {
+func (m InMemoryLinksRepository) PutBatch(_ context.Context, linkEntities []entity.LinkEntity) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	for _, linkEntity := range linkEntities {
-		m.db[linkEntity.ID] = linkEntity
+	for _, e := range linkEntities {
+		m.db[e.ID] = e
 	}
 	return nil
 }
@@ -64,11 +66,11 @@ func (m InMemoryLinksRepository) Count(_ context.Context) (int, error) {
 }
 
 // FindLinksByUID возвращает ссылки по идентификатору пользователя
-func (m InMemoryLinksRepository) FindLinksByUID(_ context.Context, uid string) ([]LinkEntity, error) {
-	result := make([]LinkEntity, 0, 100)
-	for _, entity := range m.db {
-		if entity.IsOwnedByUserAndExists(uid) {
-			result = append(result, entity)
+func (m InMemoryLinksRepository) FindLinksByUID(_ context.Context, uid string) ([]entity.LinkEntity, error) {
+	result := make([]entity.LinkEntity, 0, 100)
+	for _, e := range m.db {
+		if e.IsOwnedByUserAndExists(uid) {
+			result = append(result, e)
 		}
 	}
 	return result, nil
@@ -80,17 +82,17 @@ func (m InMemoryLinksRepository) DeleteLinksByUID(_ context.Context, uid string,
 	defer m.mu.Unlock()
 
 	for _, id := range linkIDs {
-		entity, ok := m.db[id]
+		e, ok := m.db[id]
 		if !ok {
 			// такого айди не в хранилище, пока просто его пропустим
 			continue
 		}
-		if !entity.IsOwnedByUser(uid) {
+		if !e.IsOwnedByUser(uid) {
 			// тут возможно надо обработать, что пытаются удалить чужой линк, но пока просто его пропустим
 			continue
 		}
-		entity.Removed = true
-		m.db[id] = entity
+		e.Removed = true
+		m.db[id] = e
 	}
 	return nil
 }

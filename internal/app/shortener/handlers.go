@@ -14,6 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/zaz600/go-musthave-shortener/internal/app/repository"
 	"github.com/zaz600/go-musthave-shortener/internal/compress"
+	"github.com/zaz600/go-musthave-shortener/internal/entity"
 	"github.com/zaz600/go-musthave-shortener/internal/helper"
 	"github.com/zaz600/go-musthave-shortener/internal/random"
 )
@@ -83,7 +84,7 @@ func (s *Service) ShortenURL() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 		defer cancel()
 
-		linkEntity := repository.NewLinkEntity(originalURL, uid)
+		linkEntity := entity.NewLinkEntity(originalURL, uid)
 		_, err = s.repository.PutIfAbsent(ctx, linkEntity)
 		if err != nil {
 			var linkExistsErr *repository.LinkExistsError
@@ -124,7 +125,7 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 		defer cancel()
 
-		linkEntity := repository.NewLinkEntity(originalURL, uid)
+		linkEntity := entity.NewLinkEntity(originalURL, uid)
 		_, err = s.repository.PutIfAbsent(ctx, linkEntity)
 		if err != nil {
 			var linkExistsErr *repository.LinkExistsError
@@ -170,22 +171,22 @@ func (s *Service) ShortenBatch() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 		defer cancel()
 		batch := repository.NewBatchService(100, s.repository)
-		linkEntities := make([]repository.LinkEntity, 0, len(request))
+		linkEntities := make([]entity.LinkEntity, 0, len(request))
 		for _, item := range request {
 			if !isValidURL(item.URL) {
 				http.Error(w, "invalid url "+item.URL, http.StatusBadRequest)
 				return
 			}
 
-			entity := repository.NewLinkEntity(item.URL, uid)
-			entity.CorrelationID = item.CorrelationID
-			err = batch.Add(ctx, entity)
+			e := entity.NewLinkEntity(item.URL, uid)
+			e.CorrelationID = item.CorrelationID
+			err = batch.Add(ctx, e)
 			if err != nil {
 				log.Warn().Err(err).Str("uid", uid).Msg("")
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return
 			}
-			linkEntities = append(linkEntities, entity)
+			linkEntities = append(linkEntities, e)
 		}
 		err = batch.Flush(ctx)
 		if err != nil {
@@ -195,10 +196,10 @@ func (s *Service) ShortenBatch() http.HandlerFunc {
 		}
 
 		var resp ShortenBatchResponse
-		for _, entity := range linkEntities {
+		for _, e := range linkEntities {
 			resp = append(resp, ShortenBatchResponseItem{
-				CorrelationID: entity.CorrelationID,
-				ShortURL:      s.shortURL(entity.ID),
+				CorrelationID: e.CorrelationID,
+				ShortURL:      s.shortURL(e.ID),
 			})
 		}
 
@@ -236,10 +237,10 @@ func (s *Service) GetUserLinks() http.HandlerFunc {
 		}
 		var result []UserLinksResponseEntry
 
-		for _, entity := range links {
+		for _, e := range links {
 			result = append(result, UserLinksResponseEntry{
-				ShortURL:    s.shortURL(entity.ID),
-				OriginalURL: entity.OriginalURL,
+				ShortURL:    s.shortURL(e.ID),
+				OriginalURL: e.OriginalURL,
 			})
 		}
 		data, err := json.Marshal(result)
