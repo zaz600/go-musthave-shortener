@@ -171,7 +171,7 @@ func (s *Service) ShortenBatch() http.HandlerFunc {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 		defer cancel()
-		batch := batch.NewBatchService(100, s.linksRepository)
+		batchService := batch.NewBatchService(100, s.linksRepository)
 		linkEntities := make([]entity.LinkEntity, 0, len(request))
 		for _, item := range request {
 			if !isValidURL(item.URL) {
@@ -181,7 +181,7 @@ func (s *Service) ShortenBatch() http.HandlerFunc {
 
 			e := entity.NewLinkEntity(item.URL, uid)
 			e.CorrelationID = item.CorrelationID
-			err = batch.Add(ctx, e)
+			err = batchService.Add(ctx, e)
 			if err != nil {
 				log.Warn().Err(err).Str("uid", uid).Msg("")
 				http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -189,7 +189,7 @@ func (s *Service) ShortenBatch() http.HandlerFunc {
 			}
 			linkEntities = append(linkEntities, e)
 		}
-		err = batch.Flush(ctx)
+		err = batchService.Flush(ctx)
 		if err != nil {
 			log.Warn().Err(err).Str("uid", uid).Msg("")
 			http.Error(w, "internal server error", http.StatusInternalServerError)
