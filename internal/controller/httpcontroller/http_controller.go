@@ -1,9 +1,10 @@
-package shortener
+package httpcontroller
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -18,9 +19,24 @@ import (
 	"github.com/zaz600/go-musthave-shortener/internal/infrastructure/repository"
 	"github.com/zaz600/go-musthave-shortener/internal/random"
 	"github.com/zaz600/go-musthave-shortener/internal/service/batch"
+	"github.com/zaz600/go-musthave-shortener/internal/service/shortener"
 )
 
-func (s *Service) setupHandlers() {
+type ShortenerController struct {
+	*chi.Mux
+	linksService *shortener.Service
+}
+
+func New(linksService *shortener.Service) *ShortenerController {
+	c := &ShortenerController{
+		Mux:          chi.NewRouter(),
+		linksService: linksService,
+	}
+	c.setupHandlers()
+	return c
+}
+
+func (s ShortenerController) setupHandlers() {
 	s.Use(middleware.RequestID)
 	s.Use(middleware.RealIP)
 	s.Use(middleware.Logger)
@@ -38,13 +54,13 @@ func (s *Service) setupHandlers() {
 	s.Get("/ping", s.Ping())
 }
 
-func (s *Service) GetOriginalURL() http.HandlerFunc {
+func (s ShortenerController) GetOriginalURL() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		linkID := chi.URLParam(r, "linkID")
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 		defer cancel()
 
-		linkEntity, err := s.linksRepository.Get(ctx, linkID)
+		linkEntity, err := s.linksService.GetRepo().Get(ctx, linkID)
 		if err != nil {
 			http.Error(w, "url not found", http.StatusBadRequest)
 			return
@@ -58,7 +74,7 @@ func (s *Service) GetOriginalURL() http.HandlerFunc {
 	}
 }
 
-func (s *Service) ShortenURL() http.HandlerFunc {
+func (s ShortenerController) ShortenURL() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		statusHeader := http.StatusCreated
 
@@ -73,7 +89,7 @@ func (s *Service) ShortenURL() http.HandlerFunc {
 			return
 		}
 		originalURL := string(bytes)
-		if !isValidURL(originalURL) {
+		if !shortener.IsValidURL(originalURL) {
 			http.Error(w, "invalid url "+originalURL, http.StatusBadRequest)
 			return
 		}
@@ -86,7 +102,7 @@ func (s *Service) ShortenURL() http.HandlerFunc {
 		defer cancel()
 
 		linkEntity := entity.NewLinkEntity(originalURL, uid)
-		_, err = s.linksRepository.PutIfAbsent(ctx, linkEntity)
+		_, err = s.linksService.GetRepo().PutIfAbsent(ctx, linkEntity)
 		if err != nil {
 			var linkExistsErr *repository.LinkExistsError
 			if !errors.As(err, &linkExistsErr) {
@@ -98,11 +114,11 @@ func (s *Service) ShortenURL() http.HandlerFunc {
 			statusHeader = http.StatusConflict
 		}
 		helper.SetUIDCookie(w, uid)
-		writeAnswer(w, "text/html", statusHeader, s.shortURL(linkEntity.ID))
+		writeAnswer(w, "text/html", statusHeader, s.linksService.ShortURL(linkEntity.ID))
 	}
 }
 
-func (s *Service) ShortenJSON() http.HandlerFunc {
+func (s ShortenerController) ShortenJSON() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		statusHeader := http.StatusCreated
 		decoder := json.NewDecoder(r.Body)
@@ -114,7 +130,7 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 		}
 
 		originalURL := request.URL
-		if !isValidURL(originalURL) {
+		if !shortener.IsValidURL(originalURL) {
 			http.Error(w, "invalid url", http.StatusBadRequest)
 			return
 		}
@@ -127,7 +143,7 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 		defer cancel()
 
 		linkEntity := entity.NewLinkEntity(originalURL, uid)
-		_, err = s.linksRepository.PutIfAbsent(ctx, linkEntity)
+		_, err = s.linksService.GetRepo().PutIfAbsent(ctx, linkEntity)
 		if err != nil {
 			var linkExistsErr *repository.LinkExistsError
 			if !errors.As(err, &linkExistsErr) {
@@ -139,7 +155,7 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 			statusHeader = http.StatusConflict
 		}
 		resp := ShortenResponse{
-			Result: s.shortURL(linkEntity.ID),
+			Result: s.linksService.ShortURL(linkEntity.ID),
 		}
 
 		data, err := json.Marshal(resp)
@@ -152,7 +168,7 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 	}
 }
 
-func (s *Service) ShortenBatch() http.HandlerFunc {
+func (s ShortenerController) ShortenBatch() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		decoder := json.NewDecoder(r.Body)
 		var request ShortenBatchRequest
@@ -171,10 +187,10 @@ func (s *Service) ShortenBatch() http.HandlerFunc {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 		defer cancel()
-		batchService := batch.NewBatchService(100, s.linksRepository)
+		batchService := batch.NewBatchService(100, s.linksService.GetRepo())
 		linkEntities := make([]entity.LinkEntity, 0, len(request))
 		for _, item := range request {
-			if !isValidURL(item.URL) {
+			if !shortener.IsValidURL(item.URL) {
 				http.Error(w, "invalid url "+item.URL, http.StatusBadRequest)
 				return
 			}
@@ -200,7 +216,7 @@ func (s *Service) ShortenBatch() http.HandlerFunc {
 		for _, e := range linkEntities {
 			resp = append(resp, ShortenBatchResponseItem{
 				CorrelationID: e.CorrelationID,
-				ShortURL:      s.shortURL(e.ID),
+				ShortURL:      s.linksService.ShortURL(e.ID),
 			})
 		}
 
@@ -212,10 +228,11 @@ func (s *Service) ShortenBatch() http.HandlerFunc {
 
 		helper.SetUIDCookie(w, uid)
 		writeAnswer(w, "application/json", http.StatusCreated, string(data))
+
 	}
 }
 
-func (s *Service) GetUserLinks() http.HandlerFunc {
+func (s ShortenerController) GetUserLinks() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uid, err := helper.ExtractUID(r.Cookies())
 		if err != nil {
@@ -226,7 +243,7 @@ func (s *Service) GetUserLinks() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 		defer cancel()
 
-		links, err := s.linksRepository.FindLinksByUID(ctx, uid)
+		links, err := s.linksService.GetRepo().FindLinksByUID(ctx, uid)
 		if err != nil {
 			log.Warn().Err(err).Str("uid", uid).Msg("")
 			http.Error(w, "internal error", http.StatusInternalServerError)
@@ -240,7 +257,7 @@ func (s *Service) GetUserLinks() http.HandlerFunc {
 
 		for _, e := range links {
 			result = append(result, UserLinksResponseEntry{
-				ShortURL:    s.shortURL(e.ID),
+				ShortURL:    s.linksService.ShortURL(e.ID),
 				OriginalURL: e.OriginalURL,
 			})
 		}
@@ -253,7 +270,7 @@ func (s *Service) GetUserLinks() http.HandlerFunc {
 	}
 }
 
-func (s *Service) DeleteUserLinks() http.HandlerFunc {
+func (s ShortenerController) DeleteUserLinks() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uid, err := helper.ExtractUID(r.Cookies())
 		if err != nil {
@@ -271,25 +288,44 @@ func (s *Service) DeleteUserLinks() http.HandlerFunc {
 			return
 		}
 
-		s.linkRemoveCh <- removeUserLinksRequest{
-			linkIDs: removeIDs,
-			uid:     uid,
-		}
+		s.linksService.RemoveLinks(removeIDs, uid)
 
 		w.WriteHeader(http.StatusAccepted)
 	}
 }
 
-func (s *Service) Ping() http.HandlerFunc {
+func (s ShortenerController) Ping() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 		defer cancel()
 
-		err := s.linksRepository.Status(ctx)
+		err := s.linksService.GetRepo().Status(ctx)
 		if err != nil {
 			http.Error(w, "pg connection error", http.StatusInternalServerError)
 			return
 		}
 		writeAnswer(w, "application/json", http.StatusOK, "connected")
+	}
+}
+
+func writeAnswer(w http.ResponseWriter, contentType string, statusCode int, data interface{}) {
+	w.Header().Set("Content-Type", contentType)
+	w.WriteHeader(statusCode)
+	_, _ = fmt.Fprint(w, data)
+}
+
+func (s ShortenerController) logCookieError(r *http.Request, err error) {
+	if errors.Is(err, helper.ErrInvalidCookieDigest) {
+		log.Warn().
+			Err(err).
+			Fields(map[string]interface{}{
+				"remote_ip":  r.RemoteAddr,
+				"url":        r.URL.Path,
+				"proto":      r.Proto,
+				"method":     r.Method,
+				"user_agent": r.Header.Get("User-Agent"),
+				"bytes_in":   r.Header.Get("Content-Length"),
+			}).
+			Msg("")
 	}
 }

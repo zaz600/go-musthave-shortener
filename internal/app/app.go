@@ -11,6 +11,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/zaz600/go-musthave-shortener/internal/app/config"
+	"github.com/zaz600/go-musthave-shortener/internal/controller/httpcontroller"
 	"github.com/zaz600/go-musthave-shortener/internal/infrastructure/repository"
 	"github.com/zaz600/go-musthave-shortener/internal/service/shortener"
 )
@@ -28,12 +29,12 @@ func Run(args []string) (err error) {
 		return err
 	}
 
-	s := shortener.NewService(cfg.BaseURL, shortener.WithRepository(repo))
+	linksService := shortener.NewService(cfg.BaseURL, shortener.WithRepository(repo))
 	defer func(ctx context.Context, s *shortener.Service) {
 		_ = s.Shutdown(ctx)
-	}(ctx, s)
+	}(ctx, linksService)
 
-	server := &http.Server{Addr: cfg.ServerAddress, Handler: s}
+	server := &http.Server{Addr: cfg.ServerAddress, Handler: httpcontroller.New(linksService)}
 
 	go func() {
 		<-ctx.Done()

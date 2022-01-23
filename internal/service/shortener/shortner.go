@@ -2,15 +2,12 @@ package shortener
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
-	"github.com/zaz600/go-musthave-shortener/internal/helper"
 	"github.com/zaz600/go-musthave-shortener/internal/infrastructure/repository"
 )
 
@@ -37,30 +34,20 @@ func NewService(baseURL string, opts ...Option) *Service {
 	if s.linksRepository == nil {
 		s.linksRepository = repository.NewInMemoryLinksRepository(context.Background(), nil)
 	}
-	s.setupHandlers()
 	s.linkRemoveCh = s.startRemoveLinksWorkers(context.Background(), 10)
 	return s
 }
 
-func (s *Service) shortURL(linkID string) string {
+func (s *Service) ShortURL(linkID string) string {
 	parsedURL, _ := url.Parse(s.baseURL)
 	parsedURL.Path = linkID
 	return parsedURL.String()
 }
 
-func (s *Service) logCookieError(r *http.Request, err error) {
-	if errors.Is(err, helper.ErrInvalidCookieDigest) {
-		log.Warn().
-			Err(err).
-			Fields(map[string]interface{}{
-				"remote_ip":  r.RemoteAddr,
-				"url":        r.URL.Path,
-				"proto":      r.Proto,
-				"method":     r.Method,
-				"user_agent": r.Header.Get("User-Agent"),
-				"bytes_in":   r.Header.Get("Content-Length"),
-			}).
-			Msg("")
+func (s *Service) RemoveLinks(removeIDs []string, uid string) {
+	s.linkRemoveCh <- removeUserLinksRequest{
+		linkIDs: removeIDs,
+		uid:     uid,
 	}
 }
 
@@ -69,6 +56,11 @@ func (s *Service) Shutdown(ctx context.Context) error {
 	defer cancel()
 
 	return s.linksRepository.Close(ctx)
+}
+
+// Deprecated: GetRepo нужна на момент рефакторинга
+func (s *Service) GetRepo() repository.LinksRepository {
+	return s.linksRepository
 }
 
 func (s *Service) startRemoveLinksWorkers(ctx context.Context, count int) chan<- removeUserLinksRequest {
@@ -101,18 +93,12 @@ func (s *Service) startRemoveLinksWorkers(ctx context.Context, count int) chan<-
 	return linkCh
 }
 
-// isValidURL проверяет адрес на пригодность для сохранения в БД
-func isValidURL(value string) bool {
+// IsValidURL проверяет адрес на пригодность для сохранения в БД
+func IsValidURL(value string) bool {
 	if value == "" {
 		return false
 	}
 	_, err := url.Parse(value)
 
 	return err == nil
-}
-
-func writeAnswer(w http.ResponseWriter, contentType string, statusCode int, data interface{}) {
-	w.Header().Set("Content-Type", contentType)
-	w.WriteHeader(statusCode)
-	_, _ = fmt.Fprint(w, data)
 }
