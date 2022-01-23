@@ -94,7 +94,7 @@ func (s *Service) Status(ctx context.Context) error {
 	return s.linksRepository.Status(ctx)
 }
 
-// Deprecated: GetRepo нужна на момент рефакторинга
+// GetRepo нужна на момент рефакторинга
 func (s *Service) GetRepo() repository.LinksRepository {
 	return s.linksRepository
 }
