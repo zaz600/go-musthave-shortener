@@ -1,4 +1,4 @@
-package compress
+package httpcontroller
 
 import (
 	"compress/gzip"

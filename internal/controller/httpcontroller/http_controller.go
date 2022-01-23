@@ -13,11 +13,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog/log"
-	"github.com/zaz600/go-musthave-shortener/internal/compress"
 	"github.com/zaz600/go-musthave-shortener/internal/entity"
-	"github.com/zaz600/go-musthave-shortener/internal/helper"
 	"github.com/zaz600/go-musthave-shortener/internal/infrastructure/repository"
-	"github.com/zaz600/go-musthave-shortener/internal/random"
+	"github.com/zaz600/go-musthave-shortener/internal/pkg/random"
 	"github.com/zaz600/go-musthave-shortener/internal/service/shortener"
 )
 
@@ -42,7 +40,7 @@ func (s ShortenerController) setupHandlers() {
 	s.Use(middleware.Recoverer)
 	s.Use(middleware.Timeout(10 * time.Second))
 	s.Use(middleware.Compress(5))
-	s.Use(compress.GzDecompressor)
+	s.Use(GzDecompressor)
 
 	s.Get("/{linkID}", s.GetOriginalURL())
 	s.Post("/", s.ShortenURL())
@@ -90,7 +88,7 @@ func (s ShortenerController) ShortenURL() http.HandlerFunc {
 			http.Error(w, "invalid url "+originalURL, http.StatusBadRequest)
 			return
 		}
-		uid, err := helper.ExtractUID(r.Cookies())
+		uid, err := ExtractUID(r.Cookies())
 		if err != nil {
 			s.logCookieError(r, err)
 			uid = random.UserID()
@@ -108,7 +106,7 @@ func (s ShortenerController) ShortenURL() http.HandlerFunc {
 			linkEntity.ID = linkExistsErr.LinkID
 			statusHeader = http.StatusConflict
 		}
-		helper.SetUIDCookie(w, uid)
+		SetUIDCookie(w, uid)
 		writeAnswer(w, "text/html", statusHeader, s.linksService.ShortURL(linkEntity.ID))
 	}
 }
@@ -129,7 +127,7 @@ func (s ShortenerController) ShortenJSON() http.HandlerFunc {
 			http.Error(w, "invalid url", http.StatusBadRequest)
 			return
 		}
-		uid, err := helper.ExtractUID(r.Cookies())
+		uid, err := ExtractUID(r.Cookies())
 		if err != nil {
 			s.logCookieError(r, err)
 			uid = random.UserID()
@@ -156,7 +154,7 @@ func (s ShortenerController) ShortenJSON() http.HandlerFunc {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
-		helper.SetUIDCookie(w, uid)
+		SetUIDCookie(w, uid)
 		writeAnswer(w, "application/json", statusHeader, string(data))
 	}
 }
@@ -173,7 +171,7 @@ func (s ShortenerController) ShortenBatch() http.HandlerFunc {
 			return
 		}
 
-		uid, err := helper.ExtractUID(r.Cookies())
+		uid, err := ExtractUID(r.Cookies())
 		if err != nil {
 			s.logCookieError(r, err)
 			uid = random.UserID()
@@ -220,14 +218,14 @@ func (s ShortenerController) ShortenBatch() http.HandlerFunc {
 			return
 		}
 
-		helper.SetUIDCookie(w, uid)
+		SetUIDCookie(w, uid)
 		writeAnswer(w, "application/json", http.StatusCreated, string(data))
 	}
 }
 
 func (s ShortenerController) GetUserLinks() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		uid, err := helper.ExtractUID(r.Cookies())
+		uid, err := ExtractUID(r.Cookies())
 		if err != nil {
 			s.logCookieError(r, err)
 			http.Error(w, "no links", http.StatusNoContent)
@@ -263,7 +261,7 @@ func (s ShortenerController) GetUserLinks() http.HandlerFunc {
 
 func (s ShortenerController) DeleteUserLinks() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		uid, err := helper.ExtractUID(r.Cookies())
+		uid, err := ExtractUID(r.Cookies())
 		if err != nil {
 			s.logCookieError(r, err)
 			http.Error(w, "not authorized", http.StatusUnauthorized)
@@ -303,7 +301,7 @@ func writeAnswer(w http.ResponseWriter, contentType string, statusCode int, data
 }
 
 func (s ShortenerController) logCookieError(r *http.Request, err error) {
-	if errors.Is(err, helper.ErrInvalidCookieDigest) {
+	if errors.Is(err, ErrInvalidCookieDigest) {
 		log.Warn().
 			Err(err).
 			Fields(map[string]interface{}{
