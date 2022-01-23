@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
+	"github.com/zaz600/go-musthave-shortener/internal/entity"
 	"github.com/zaz600/go-musthave-shortener/internal/infrastructure/repository"
 )
 
@@ -56,6 +57,41 @@ func (s *Service) Shutdown(ctx context.Context) error {
 	defer cancel()
 
 	return s.linksRepository.Close(ctx)
+}
+
+func (s *Service) ShortenURL(ctx context.Context, linkEntity entity.LinkEntity) (entity.LinkEntity, error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	return s.linksRepository.PutIfAbsent(ctx, linkEntity)
+}
+
+func (s *Service) GetUserLinks(ctx context.Context, uid string) ([]entity.LinkEntity, error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	return s.linksRepository.FindLinksByUID(ctx, uid)
+}
+
+func (s *Service) Get(ctx context.Context, linkID string) (*entity.LinkEntity, error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	return s.linksRepository.Get(ctx, linkID)
+}
+
+func (s *Service) Count(ctx context.Context) (int, error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	return s.linksRepository.Count(ctx)
+}
+
+func (s *Service) Status(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	return s.linksRepository.Status(ctx)
 }
 
 // Deprecated: GetRepo нужна на момент рефакторинга

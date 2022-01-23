@@ -57,10 +57,8 @@ func (s ShortenerController) setupHandlers() {
 func (s ShortenerController) GetOriginalURL() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		linkID := chi.URLParam(r, "linkID")
-		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
-		defer cancel()
 
-		linkEntity, err := s.linksService.GetRepo().Get(ctx, linkID)
+		linkEntity, err := s.linksService.Get(r.Context(), linkID)
 		if err != nil {
 			http.Error(w, "url not found", http.StatusBadRequest)
 			return
@@ -98,11 +96,9 @@ func (s ShortenerController) ShortenURL() http.HandlerFunc {
 			s.logCookieError(r, err)
 			uid = random.UserID()
 		}
-		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
-		defer cancel()
 
 		linkEntity := entity.NewLinkEntity(originalURL, uid)
-		_, err = s.linksService.GetRepo().PutIfAbsent(ctx, linkEntity)
+		_, err = s.linksService.ShortenURL(r.Context(), linkEntity)
 		if err != nil {
 			var linkExistsErr *repository.LinkExistsError
 			if !errors.As(err, &linkExistsErr) {
@@ -139,11 +135,9 @@ func (s ShortenerController) ShortenJSON() http.HandlerFunc {
 			s.logCookieError(r, err)
 			uid = random.UserID()
 		}
-		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
-		defer cancel()
 
 		linkEntity := entity.NewLinkEntity(originalURL, uid)
-		_, err = s.linksService.GetRepo().PutIfAbsent(ctx, linkEntity)
+		_, err = s.linksService.ShortenURL(r.Context(), linkEntity)
 		if err != nil {
 			var linkExistsErr *repository.LinkExistsError
 			if !errors.As(err, &linkExistsErr) {
@@ -168,6 +162,7 @@ func (s ShortenerController) ShortenJSON() http.HandlerFunc {
 	}
 }
 
+//nolint:funlen
 func (s ShortenerController) ShortenBatch() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		decoder := json.NewDecoder(r.Body)
@@ -228,7 +223,6 @@ func (s ShortenerController) ShortenBatch() http.HandlerFunc {
 
 		helper.SetUIDCookie(w, uid)
 		writeAnswer(w, "application/json", http.StatusCreated, string(data))
-
 	}
 }
 
@@ -240,10 +234,8 @@ func (s ShortenerController) GetUserLinks() http.HandlerFunc {
 			http.Error(w, "no links", http.StatusNoContent)
 			return
 		}
-		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
-		defer cancel()
 
-		links, err := s.linksService.GetRepo().FindLinksByUID(ctx, uid)
+		links, err := s.linksService.GetUserLinks(r.Context(), uid)
 		if err != nil {
 			log.Warn().Err(err).Str("uid", uid).Msg("")
 			http.Error(w, "internal error", http.StatusInternalServerError)
@@ -296,10 +288,7 @@ func (s ShortenerController) DeleteUserLinks() http.HandlerFunc {
 
 func (s ShortenerController) Ping() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
-		defer cancel()
-
-		err := s.linksService.GetRepo().Status(ctx)
+		err := s.linksService.Status(r.Context())
 		if err != nil {
 			http.Error(w, "pg connection error", http.StatusInternalServerError)
 			return

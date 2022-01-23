@@ -187,7 +187,7 @@ func TestShortenerController_ShortenURLMultiple(t *testing.T) {
 		res, _ := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
 		res.Body.Close()
 	}
-	count, err := linksService.GetRepo().Count(context.TODO())
+	count, err := linksService.Count(context.TODO())
 	assert.NoError(t, err)
 	assert.Equal(t, 6, count) // 1 + 5
 }
@@ -526,7 +526,7 @@ func TestShortenerController_DeleteUserLinks(t *testing.T) {
 	}
 
 	// В репо ничего не удалилось
-	count, err := linksService.GetRepo().Count(context.TODO())
+	count, err := linksService.Count(context.TODO())
 	require.NoError(t, err)
 	assert.Equal(t, len(links)+1, count)
 
