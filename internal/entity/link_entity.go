@@ -1,6 +1,8 @@
 package entity
 
-import "github.com/zaz600/go-musthave-shortener/internal/random"
+import (
+	"github.com/zaz600/go-musthave-shortener/internal/pkg/random"
+)
 
 type LinkEntity struct {
 	ID            string `json:"id"`
