@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
+	"github.com/zaz600/go-musthave-shortener/internal/entity"
 )
 
 type PgLinksRepository struct {
@@ -47,21 +48,21 @@ func NewPgLinksRepository(ctx context.Context, databaseDSN string) (*PgLinksRepo
 	return &repo, nil
 }
 
-// Get достает по linkID из БД информацию по сокращенной ссылке LinkEntity
-func (p *PgLinksRepository) Get(ctx context.Context, linkID string) (*LinkEntity, error) {
+// Get достает по linkID из БД информацию по сокращенной ссылке entity.LinkEntity
+func (p *PgLinksRepository) Get(ctx context.Context, linkID string) (*entity.LinkEntity, error) {
 	query := `select uid, original_url, link_id, removed  from shortener.links where link_id = $1`
-	var entity LinkEntity
+	var e entity.LinkEntity
 	result := p.conn.QueryRow(ctx, query, linkID)
-	err := result.Scan(&entity.UID, &entity.OriginalURL, &entity.ID, &entity.Removed)
+	err := result.Scan(&e.UID, &e.OriginalURL, &e.ID, &e.Removed)
 	if err != nil {
 		return nil, err
 	}
-	return &entity, nil
+	return &e, nil
 }
 
 // PutIfAbsent сохраняет в БД длинную ссылку, если такой там еще нет.
 // Если длинная ссылка есть в БД, выбрасывает исключение LinkExistsError с идентификатором ее короткой ссылки.
-func (p *PgLinksRepository) PutIfAbsent(ctx context.Context, linkEntity LinkEntity) (LinkEntity, error) {
+func (p *PgLinksRepository) PutIfAbsent(ctx context.Context, linkEntity entity.LinkEntity) (entity.LinkEntity, error) {
 	query := `
 WITH new_link AS (
     INSERT INTO shortener.links(link_id, original_url, uid) VALUES ($1, $2, $3)
@@ -74,26 +75,26 @@ WITH new_link AS (
 	var linkID string
 	err := p.conn.QueryRow(ctx, query, linkEntity.ID, linkEntity.OriginalURL, linkEntity.UID).Scan(&linkID)
 	if err != nil {
-		return LinkEntity{}, err
+		return entity.LinkEntity{}, err
 	}
 	if linkEntity.ID != linkID {
 		// хотели положить в бд ссылку с одним коротким айди,
 		// а вернулся айди ранее сохкращеной ссылки
-		return LinkEntity{}, NewLinkExistsError(linkID)
+		return entity.LinkEntity{}, NewLinkExistsError(linkID)
 	}
 	return linkEntity, nil
 }
 
 // PutBatch сохраняет в БД список сокращенных ссылок. Все ссылки записываются в одной транзакции.
-func (p *PgLinksRepository) PutBatch(ctx context.Context, linkEntities []LinkEntity) error {
+func (p *PgLinksRepository) PutBatch(ctx context.Context, linkEntities []entity.LinkEntity) error {
 	tx, err := p.conn.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
-	for _, entity := range linkEntities {
-		if _, err = tx.Exec(ctx, p.insertLinkStmt.Name, entity.ID, entity.OriginalURL, entity.UID); err != nil {
+	for _, e := range linkEntities {
+		if _, err = tx.Exec(ctx, p.insertLinkStmt.Name, e.ID, e.OriginalURL, e.UID); err != nil {
 			return err
 		}
 	}
@@ -115,21 +116,21 @@ func (p *PgLinksRepository) Count(ctx context.Context) (int, error) {
 }
 
 // FindLinksByUID возвращает ссылки по идентификатору пользователя
-func (p *PgLinksRepository) FindLinksByUID(ctx context.Context, uid string) ([]LinkEntity, error) {
+func (p *PgLinksRepository) FindLinksByUID(ctx context.Context, uid string) ([]entity.LinkEntity, error) {
 	query := `select uid, original_url, link_id  from shortener.links where uid=$1 and removed = false`
 
-	var result []LinkEntity
+	var result []entity.LinkEntity
 	rows, err := p.conn.Query(ctx, query, uid)
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
-		var entity LinkEntity
-		err = rows.Scan(&entity.UID, &entity.OriginalURL, &entity.ID)
+		var e entity.LinkEntity
+		err = rows.Scan(&e.UID, &e.OriginalURL, &e.ID)
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, entity)
+		result = append(result, e)
 	}
 	err = rows.Err()
 	if err != nil {

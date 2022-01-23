@@ -4,50 +4,26 @@ import (
 	"context"
 
 	"github.com/rs/zerolog/log"
-	"github.com/zaz600/go-musthave-shortener/internal/config"
-	"github.com/zaz600/go-musthave-shortener/internal/random"
+	"github.com/zaz600/go-musthave-shortener/internal/app/config"
+	"github.com/zaz600/go-musthave-shortener/internal/entity"
 )
 
-type LinkEntity struct {
-	ID            string `json:"id"`
-	OriginalURL   string `json:"original_url"`
-	UID           string `json:"uid,omitempty"`
-	CorrelationID string `json:"correlation_id,omitempty"`
-	Removed       bool   `json:"-"`
-}
-
-func NewLinkEntity(originalURL string, uid string) LinkEntity {
-	return LinkEntity{
-		ID:          random.String(8),
-		OriginalURL: originalURL,
-		UID:         uid,
-	}
-}
-
-func (e LinkEntity) IsOwnedByUserAndExists(uid string) bool {
-	return e.IsOwnedByUser(uid) && !e.Removed
-}
-
-func (e LinkEntity) IsOwnedByUser(uid string) bool {
-	return e.UID == uid
-}
-
 type LinksRepository interface {
-	// Get достает по linkID из репозитория информацию по сокращенной ссылке LinkEntity
-	Get(ctx context.Context, linkID string) (*LinkEntity, error)
+	// Get достает по linkID из репозитория информацию по сокращенной ссылке entity.LinkEntity
+	Get(ctx context.Context, linkID string) (*entity.LinkEntity, error)
 
 	// PutIfAbsent сохраняет в БД длинную ссылку, если такой там еще нет.
 	// Если длинная ссылка есть в БД, выбрасывает исключение LinkExistsError с идентификатором ее короткой ссылки.
-	PutIfAbsent(ctx context.Context, linkEntity LinkEntity) (LinkEntity, error)
+	PutIfAbsent(ctx context.Context, linkEntity entity.LinkEntity) (entity.LinkEntity, error)
 
 	// PutBatch сохраняет в хранилище список сокращенных ссылок. Все ссылки записываются в одной транзакции.
-	PutBatch(ctx context.Context, linkEntities []LinkEntity) error
+	PutBatch(ctx context.Context, linkEntities []entity.LinkEntity) error
 
 	// Count возвращает количество записей в репозитории.
 	Count(ctx context.Context) (int, error)
 
 	// FindLinksByUID возвращает ссылки по идентификатору пользователя
-	FindLinksByUID(ctx context.Context, uid string) ([]LinkEntity, error)
+	FindLinksByUID(ctx context.Context, uid string) ([]entity.LinkEntity, error)
 
 	// DeleteLinksByUID отложенно запускает удаление ссылок пользователя
 	DeleteLinksByUID(ctx context.Context, uid string, linkIDs ...string) error

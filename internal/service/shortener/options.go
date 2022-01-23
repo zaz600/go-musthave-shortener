@@ -1,14 +1,14 @@
 package shortener
 
 import (
-	"github.com/zaz600/go-musthave-shortener/internal/app/repository"
+	"github.com/zaz600/go-musthave-shortener/internal/infrastructure/repository"
 )
 
 type Option func(*Service) error
 
 func WithRepository(linksRepository repository.LinksRepository) Option {
 	return func(s *Service) error {
-		s.repository = linksRepository
+		s.linksRepository = linksRepository
 		return nil
 	}
 }

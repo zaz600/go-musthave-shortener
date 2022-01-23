@@ -1,4 +1,4 @@
-package shortener
+package httpcontroller
 
 import (
 	"bytes"
@@ -17,42 +17,26 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/zaz600/go-musthave-shortener/internal/app/repository"
+	"github.com/zaz600/go-musthave-shortener/internal/entity"
+	"github.com/zaz600/go-musthave-shortener/internal/infrastructure/repository"
+	"github.com/zaz600/go-musthave-shortener/internal/service/shortener"
 )
 
 const baseURL = "http://localhost:8080"
 
-func TestService_isValidURL(t *testing.T) {
-	tests := []struct {
-		name string
-		url  string
-		want bool
-	}{
-		{
-			name: "valid url",
-			url:  "https://ya.ru",
-			want: true,
-		},
-		{
-			name: "valid url without proto",
-			url:  "ya.ru",
-			want: true,
-		},
-		{
-			name: "invalid url",
-			url:  "",
-			want: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := isValidURL(tt.url)
-			assert.Equal(t, tt.want, got)
-		})
-	}
+func TestShortenerController_Ping(t *testing.T) {
+	linksService := shortener.NewService(baseURL, shortener.WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), nil)))
+	controller := New(linksService)
+	ts := httptest.NewServer(controller.Mux)
+	defer ts.Close()
+
+	res, body := testRequest(t, ts, "GET", "/ping", nil, nil) //nolint:bodyclose
+	defer res.Body.Close()
+	assert.Equal(t, 200, res.StatusCode)
+	assert.Equal(t, "connected", body)
 }
 
-func TestService_Get(t *testing.T) {
+func TestShortenerController_GetOriginalURL(t *testing.T) {
 	type want struct {
 		code        int
 		contentType string
@@ -61,13 +45,13 @@ func TestService_Get(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		db          map[string]repository.LinkEntity
+		db          map[string]entity.LinkEntity
 		queryString string
 		want        want
 	}{
 		{
 			name: "id exists",
-			db: map[string]repository.LinkEntity{
+			db: map[string]entity.LinkEntity{
 				"1": {
 					ID:          "1",
 					OriginalURL: "http://ya.ru/123",
@@ -82,7 +66,7 @@ func TestService_Get(t *testing.T) {
 		},
 		{
 			name: "id does not exists",
-			db: map[string]repository.LinkEntity{
+			db: map[string]entity.LinkEntity{
 				"1": {
 					ID:          "1",
 					OriginalURL: "http://ya.ru/123",
@@ -98,8 +82,9 @@ func TestService_Get(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), tt.db)))
-			ts := httptest.NewServer(s.Mux)
+			linksService := shortener.NewService(baseURL, shortener.WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), tt.db)))
+			controller := New(linksService)
+			ts := httptest.NewServer(controller.Mux)
 			defer ts.Close()
 
 			res, _ := testRequest(t, ts, "GET", tt.queryString, nil, nil) //nolint:bodyclose
@@ -112,7 +97,7 @@ func TestService_Get(t *testing.T) {
 }
 
 //nolint:funlen
-func TestService_Post(t *testing.T) {
+func TestShortenerController_ShortenURL(t *testing.T) {
 	type want struct {
 		code        int
 		contentType string
@@ -121,7 +106,7 @@ func TestService_Post(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		db          map[string]repository.LinkEntity
+		db          map[string]entity.LinkEntity
 		queryString string
 		body        []byte
 		want        want
@@ -129,7 +114,7 @@ func TestService_Post(t *testing.T) {
 	}{
 		{
 			name: "correct url",
-			db: map[string]repository.LinkEntity{
+			db: map[string]entity.LinkEntity{
 				"100": {
 					ID:          "100",
 					OriginalURL: "http://ya.ru/123",
@@ -146,7 +131,7 @@ func TestService_Post(t *testing.T) {
 		},
 		{
 			name: "incorrect url",
-			db: map[string]repository.LinkEntity{
+			db: map[string]entity.LinkEntity{
 				"100": {
 					ID:          "100",
 					OriginalURL: "http://ya.ru/123",
@@ -164,9 +149,9 @@ func TestService_Post(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), tt.db)))
-
-			ts := httptest.NewServer(s.Mux)
+			linksService := shortener.NewService(baseURL, shortener.WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), tt.db)))
+			controller := New(linksService)
+			ts := httptest.NewServer(controller.Mux)
 			defer ts.Close()
 
 			res, respBody := testRequest(t, ts, "POST", tt.queryString, bytes.NewReader(tt.body), nil) //nolint:bodyclose
@@ -185,7 +170,49 @@ func TestService_Post(t *testing.T) {
 	}
 }
 
-func TestService_SuccessPath(t *testing.T) {
+func TestShortenerController_ShortenURLMultiple(t *testing.T) {
+	db := map[string]entity.LinkEntity{
+		"100": {
+			ID:          "100",
+			OriginalURL: "http://ya.ru/123",
+		},
+	}
+	linksService := shortener.NewService(baseURL, shortener.WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), db)))
+	controller := New(linksService)
+	ts := httptest.NewServer(controller.Mux)
+	defer ts.Close()
+
+	for i := 0; i < 5; i++ {
+		longURL := fmt.Sprintf(`https://yandex.ru/search/?lr=2&text=abc%d`, i)
+		res, _ := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
+		res.Body.Close()
+	}
+	count, err := linksService.Count(context.TODO())
+	assert.NoError(t, err)
+	assert.Equal(t, 6, count) // 1 + 5
+}
+
+func TestShortenerController_ShortenURLExists(t *testing.T) {
+	longURL := "http://ya.ru/123"
+	db := map[string]entity.LinkEntity{
+		"100": {
+			ID:          "100",
+			OriginalURL: longURL,
+		},
+	}
+	linksService := shortener.NewService(baseURL, shortener.WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), db)))
+	controller := New(linksService)
+	ts := httptest.NewServer(controller.Mux)
+	defer ts.Close()
+
+	res, body := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
+	defer res.Body.Close()
+
+	assert.Equal(t, http.StatusConflict, res.StatusCode)
+	assert.Equal(t, body, "http://localhost:8080/100")
+}
+
+func TestShortenerController_ShortenSuccessPath(t *testing.T) {
 	longURL := `https://yandex.ru/search/?lr=2&text=abc`
 
 	want := struct {
@@ -198,15 +225,15 @@ func TestService_SuccessPath(t *testing.T) {
 		contentType: "text/html; charset=utf-8",
 	}
 
-	db := map[string]repository.LinkEntity{
+	db := map[string]entity.LinkEntity{
 		"100": {
 			ID:          "100",
 			OriginalURL: "http://ya.ru/123",
 		},
 	}
-	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), db)))
-
-	ts := httptest.NewServer(s.Mux)
+	linksService := shortener.NewService(baseURL, shortener.WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), db)))
+	controller := New(linksService)
+	ts := httptest.NewServer(controller.Mux)
 	defer ts.Close()
 
 	// сохраняем длинный урл
@@ -225,100 +252,8 @@ func TestService_SuccessPath(t *testing.T) {
 	assert.Equal(t, want.contentType, res.Header.Get("Content-Type"))
 }
 
-func TestService_PostMultiple(t *testing.T) {
-	db := map[string]repository.LinkEntity{
-		"100": {
-			ID:          "100",
-			OriginalURL: "http://ya.ru/123",
-		},
-	}
-	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), db)))
-	ts := httptest.NewServer(s.Mux)
-	defer ts.Close()
-
-	for i := 0; i < 5; i++ {
-		longURL := fmt.Sprintf(`https://yandex.ru/search/?lr=2&text=abc%d`, i)
-		res, _ := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
-		res.Body.Close()
-	}
-	count, err := s.repository.Count(context.TODO())
-	assert.NoError(t, err)
-	assert.Equal(t, 6, count) // 1 + 5
-}
-
-func TestService_PostExist(t *testing.T) {
-	longURL := "http://ya.ru/123"
-	db := map[string]repository.LinkEntity{
-		"100": {
-			ID:          "100",
-			OriginalURL: longURL,
-		},
-	}
-	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), db)))
-	ts := httptest.NewServer(s.Mux)
-	defer ts.Close()
-
-	res, body := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
-	defer res.Body.Close()
-
-	assert.Equal(t, http.StatusConflict, res.StatusCode)
-	assert.Equal(t, body, "http://localhost:8080/100")
-}
-
-func TestService_PostJSONExist(t *testing.T) {
-	longURL := "http://ya.ru/123"
-
-	db := map[string]repository.LinkEntity{
-		"100": {
-			ID:          "100",
-			OriginalURL: longURL,
-		},
-	}
-	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), db)))
-	ts := httptest.NewServer(s.Mux)
-	defer ts.Close()
-
-	request := []byte(fmt.Sprintf(`{"url":"%s"}`, longURL))
-	res, body := testRequest(t, ts, "POST", "/api/shorten", bytes.NewReader(request), nil) //nolint:bodyclose
-	defer res.Body.Close()
-
-	assert.Equal(t, http.StatusConflict, res.StatusCode)
-	assert.JSONEq(t, body, `{"result":"http://localhost:8080/100"}`)
-}
-
-func TestService_GetUserLinks(t *testing.T) {
-	longURL := `https://yandex.ru/search/?lr=2&text=abc`
-	db := map[string]repository.LinkEntity{
-		"100": {
-			ID:          "100",
-			OriginalURL: "http://ya.ru/123",
-			UID:         "100500",
-		},
-	}
-	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), db)))
-	ts := httptest.NewServer(s.Mux)
-	defer ts.Close()
-
-	// сохраняем длинный урл
-	resGet, shortLink := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
-	defer resGet.Body.Close()
-	assert.NotEmpty(t, shortLink)
-
-	uidCookie := extractUIDCookie(t, resGet)
-
-	res, respBody := testRequest(t, ts, "GET", "/user/urls", nil, uidCookie)
-	res.Body.Close()
-
-	var actual []UserLinksResponseEntry
-	err := json.Unmarshal([]byte(respBody), &actual)
-	assert.NoError(t, err)
-
-	assert.Len(t, actual, 1)
-	assert.Equal(t, longURL, actual[0].OriginalURL)
-}
-
 //nolint:funlen
-func TestService_Post_JSON(t *testing.T) {
+func TestShortenerController_ShortenJSON(t *testing.T) {
 	type want struct {
 		code        int
 		contentType string
@@ -327,7 +262,7 @@ func TestService_Post_JSON(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		db          map[string]repository.LinkEntity
+		db          map[string]entity.LinkEntity
 		queryString string
 		body        []byte
 		contentType string
@@ -336,7 +271,7 @@ func TestService_Post_JSON(t *testing.T) {
 	}{
 		{
 			name: "correct url",
-			db: map[string]repository.LinkEntity{
+			db: map[string]entity.LinkEntity{
 				"100": {
 					ID:          "100",
 					OriginalURL: "http://ya.ru/123",
@@ -353,7 +288,7 @@ func TestService_Post_JSON(t *testing.T) {
 		},
 		{
 			name: "incorrect url",
-			db: map[string]repository.LinkEntity{
+			db: map[string]entity.LinkEntity{
 				"100": {
 					ID:          "100",
 					OriginalURL: "http://ya.ru/123",
@@ -370,7 +305,7 @@ func TestService_Post_JSON(t *testing.T) {
 		},
 		{
 			name: "invalid json",
-			db: map[string]repository.LinkEntity{
+			db: map[string]entity.LinkEntity{
 				"100": {
 					ID:          "100",
 					OriginalURL: "http://ya.ru/123",
@@ -387,7 +322,7 @@ func TestService_Post_JSON(t *testing.T) {
 		},
 		{
 			name: "missing field",
-			db: map[string]repository.LinkEntity{
+			db: map[string]entity.LinkEntity{
 				"100": {
 					ID:          "100",
 					OriginalURL: "http://ya.ru/123",
@@ -405,9 +340,9 @@ func TestService_Post_JSON(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), tt.db)))
-
-			ts := httptest.NewServer(s.Mux)
+			linksService := shortener.NewService(baseURL, shortener.WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), tt.db)))
+			controller := New(linksService)
+			ts := httptest.NewServer(controller.Mux)
 			defer ts.Close()
 
 			res, respBody := testRequest(t, ts, "POST", tt.queryString, bytes.NewReader(tt.body), nil) //nolint:bodyclose
@@ -430,8 +365,62 @@ func TestService_Post_JSON(t *testing.T) {
 	}
 }
 
+func TestShortenerController_ShortenJSONExists(t *testing.T) {
+	longURL := "http://ya.ru/123"
+
+	db := map[string]entity.LinkEntity{
+		"100": {
+			ID:          "100",
+			OriginalURL: longURL,
+		},
+	}
+	linksService := shortener.NewService(baseURL, shortener.WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), db)))
+	controller := New(linksService)
+	ts := httptest.NewServer(controller.Mux)
+	defer ts.Close()
+
+	request := []byte(fmt.Sprintf(`{"url":"%s"}`, longURL))
+	res, body := testRequest(t, ts, "POST", "/api/shorten", bytes.NewReader(request), nil) //nolint:bodyclose
+	defer res.Body.Close()
+
+	assert.Equal(t, http.StatusConflict, res.StatusCode)
+	assert.JSONEq(t, body, `{"result":"http://localhost:8080/100"}`)
+}
+
+func TestShortenerController_GetUserLinks(t *testing.T) {
+	longURL := `https://yandex.ru/search/?lr=2&text=abc`
+	db := map[string]entity.LinkEntity{
+		"100": {
+			ID:          "100",
+			OriginalURL: "http://ya.ru/123",
+			UID:         "100500",
+		},
+	}
+	linksService := shortener.NewService(baseURL, shortener.WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), db)))
+	controller := New(linksService)
+	ts := httptest.NewServer(controller.Mux)
+	defer ts.Close()
+
+	// сохраняем длинный урл
+	resGet, shortLink := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
+	defer resGet.Body.Close()
+	assert.NotEmpty(t, shortLink)
+
+	uidCookie := extractUIDCookie(t, resGet)
+
+	res, respBody := testRequest(t, ts, "GET", "/user/urls", nil, uidCookie)
+	res.Body.Close()
+
+	var actual []UserLinksResponseEntry
+	err := json.Unmarshal([]byte(respBody), &actual)
+	assert.NoError(t, err)
+
+	assert.Len(t, actual, 1)
+	assert.Equal(t, longURL, actual[0].OriginalURL)
+}
+
 //nolint:funlen
-func TestService_Post_Batch(t *testing.T) {
+func TestShortenerController_ShortenBatch(t *testing.T) {
 	type want struct {
 		code        int
 		contentType string
@@ -440,7 +429,7 @@ func TestService_Post_Batch(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		db          map[string]repository.LinkEntity
+		db          map[string]entity.LinkEntity
 		queryString string
 		body        []byte
 		contentType string
@@ -449,7 +438,7 @@ func TestService_Post_Batch(t *testing.T) {
 	}{
 		{
 			name: "correct url",
-			db: map[string]repository.LinkEntity{
+			db: map[string]entity.LinkEntity{
 				"100": {
 					ID:          "100",
 					OriginalURL: "http://ya.ru/123",
@@ -467,9 +456,9 @@ func TestService_Post_Batch(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), tt.db)))
-
-			ts := httptest.NewServer(s.Mux)
+			linksService := shortener.NewService(baseURL, shortener.WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), tt.db)))
+			controller := New(linksService)
+			ts := httptest.NewServer(controller.Mux)
 			defer ts.Close()
 
 			res, respBody := testRequest(t, ts, "POST", tt.queryString, bytes.NewReader(tt.body), nil) //nolint:bodyclose
@@ -488,8 +477,8 @@ func TestService_Post_Batch(t *testing.T) {
 	}
 }
 
-func TestService_DeleteUserLinks(t *testing.T) {
-	db := map[string]repository.LinkEntity{
+func TestShortenerController_DeleteUserLinks(t *testing.T) {
+	db := map[string]entity.LinkEntity{
 		"100": {
 			ID:          "100",
 			OriginalURL: "http://ya.ru/123",
@@ -497,8 +486,9 @@ func TestService_DeleteUserLinks(t *testing.T) {
 		},
 	}
 
-	s := NewService(baseURL, WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), db)))
-	ts := httptest.NewServer(s.Mux)
+	linksService := shortener.NewService(baseURL, shortener.WithRepository(repository.NewInMemoryLinksRepository(context.TODO(), db)))
+	controller := New(linksService)
+	ts := httptest.NewServer(controller.Mux)
 	defer ts.Close()
 
 	// Добавляем ссылки
@@ -536,7 +526,7 @@ func TestService_DeleteUserLinks(t *testing.T) {
 	}
 
 	// В репо ничего не удалилось
-	count, err := s.repository.Count(context.TODO())
+	count, err := linksService.Count(context.TODO())
 	require.NoError(t, err)
 	assert.Equal(t, len(links)+1, count)
 
@@ -580,11 +570,18 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, body io
 	return resp, string(respBody)
 }
 
-type LinkInfo struct {
-	LongURL  string
-	ShortURL string
-	ShortID  string
-	Cookie   *http.Cookie
+func extractUIDCookie(t *testing.T, r *http.Response) *http.Cookie {
+	t.Helper()
+
+	var uidCookie *http.Cookie
+	for _, cookie := range r.Cookies() {
+		if cookie.Name == "SHORTENER_UID" {
+			uidCookie = cookie
+			break
+		}
+	}
+	require.NotNil(t, uidCookie)
+	return uidCookie
 }
 
 func shortenLinks(t *testing.T, ts *httptest.Server, count int) map[string]LinkInfo {
@@ -618,16 +615,9 @@ func shortenLinks(t *testing.T, ts *httptest.Server, count int) map[string]LinkI
 	return links
 }
 
-func extractUIDCookie(t *testing.T, r *http.Response) *http.Cookie {
-	t.Helper()
-
-	var uidCookie *http.Cookie
-	for _, cookie := range r.Cookies() {
-		if cookie.Name == "SHORTENER_UID" {
-			uidCookie = cookie
-			break
-		}
-	}
-	require.NotNil(t, uidCookie)
-	return uidCookie
+type LinkInfo struct {
+	LongURL  string
+	ShortURL string
+	ShortID  string
+	Cookie   *http.Cookie
 }
