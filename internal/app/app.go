@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"github.com/zaz600/go-musthave-shortener/internal/app/config"
 	"github.com/zaz600/go-musthave-shortener/internal/app/repository"
 	"github.com/zaz600/go-musthave-shortener/internal/app/shortener"
-	"github.com/zaz600/go-musthave-shortener/internal/config"
 )
 
 func Run(args []string) (err error) {

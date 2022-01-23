@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/rs/zerolog/log"
-	"github.com/zaz600/go-musthave-shortener/internal/config"
+	"github.com/zaz600/go-musthave-shortener/internal/app/config"
 	"github.com/zaz600/go-musthave-shortener/internal/entity"
 )
 
