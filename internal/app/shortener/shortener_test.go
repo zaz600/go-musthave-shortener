@@ -17,8 +17,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/zaz600/go-musthave-shortener/internal/app/repository"
 	"github.com/zaz600/go-musthave-shortener/internal/entity"
+	"github.com/zaz600/go-musthave-shortener/internal/infrastructure/repository"
 )
 
 const baseURL = "http://localhost:8080"
@@ -242,7 +242,7 @@ func TestService_PostMultiple(t *testing.T) {
 		res, _ := testRequest(t, ts, "POST", "/", bytes.NewReader([]byte(longURL)), nil) //nolint:bodyclose
 		res.Body.Close()
 	}
-	count, err := s.repository.Count(context.TODO())
+	count, err := s.linksRepository.Count(context.TODO())
 	assert.NoError(t, err)
 	assert.Equal(t, 6, count) // 1 + 5
 }
@@ -537,7 +537,7 @@ func TestService_DeleteUserLinks(t *testing.T) {
 	}
 
 	// В репо ничего не удалилось
-	count, err := s.repository.Count(context.TODO())
+	count, err := s.linksRepository.Count(context.TODO())
 	require.NoError(t, err)
 	assert.Equal(t, len(links)+1, count)
 

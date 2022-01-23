@@ -12,10 +12,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog/log"
-	"github.com/zaz600/go-musthave-shortener/internal/app/repository"
 	"github.com/zaz600/go-musthave-shortener/internal/compress"
 	"github.com/zaz600/go-musthave-shortener/internal/entity"
 	"github.com/zaz600/go-musthave-shortener/internal/helper"
+	"github.com/zaz600/go-musthave-shortener/internal/infrastructure/repository"
 	"github.com/zaz600/go-musthave-shortener/internal/random"
 )
 
@@ -43,7 +43,7 @@ func (s *Service) GetOriginalURL() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 		defer cancel()
 
-		linkEntity, err := s.repository.Get(ctx, linkID)
+		linkEntity, err := s.linksRepository.Get(ctx, linkID)
 		if err != nil {
 			http.Error(w, "url not found", http.StatusBadRequest)
 			return
@@ -85,7 +85,7 @@ func (s *Service) ShortenURL() http.HandlerFunc {
 		defer cancel()
 
 		linkEntity := entity.NewLinkEntity(originalURL, uid)
-		_, err = s.repository.PutIfAbsent(ctx, linkEntity)
+		_, err = s.linksRepository.PutIfAbsent(ctx, linkEntity)
 		if err != nil {
 			var linkExistsErr *repository.LinkExistsError
 			if !errors.As(err, &linkExistsErr) {
@@ -126,7 +126,7 @@ func (s *Service) ShortenJSON() http.HandlerFunc {
 		defer cancel()
 
 		linkEntity := entity.NewLinkEntity(originalURL, uid)
-		_, err = s.repository.PutIfAbsent(ctx, linkEntity)
+		_, err = s.linksRepository.PutIfAbsent(ctx, linkEntity)
 		if err != nil {
 			var linkExistsErr *repository.LinkExistsError
 			if !errors.As(err, &linkExistsErr) {
@@ -170,7 +170,7 @@ func (s *Service) ShortenBatch() http.HandlerFunc {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 		defer cancel()
-		batch := repository.NewBatchService(100, s.repository)
+		batch := repository.NewBatchService(100, s.linksRepository)
 		linkEntities := make([]entity.LinkEntity, 0, len(request))
 		for _, item := range request {
 			if !isValidURL(item.URL) {
@@ -225,7 +225,7 @@ func (s *Service) GetUserLinks() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 		defer cancel()
 
-		links, err := s.repository.FindLinksByUID(ctx, uid)
+		links, err := s.linksRepository.FindLinksByUID(ctx, uid)
 		if err != nil {
 			log.Warn().Err(err).Str("uid", uid).Msg("")
 			http.Error(w, "internal error", http.StatusInternalServerError)
@@ -284,7 +284,7 @@ func (s *Service) Ping() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 		defer cancel()
 
-		err := s.repository.Status(ctx)
+		err := s.linksRepository.Status(ctx)
 		if err != nil {
 			http.Error(w, "pg connection error", http.StatusInternalServerError)
 			return

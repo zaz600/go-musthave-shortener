@@ -10,22 +10,22 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
-	"github.com/zaz600/go-musthave-shortener/internal/app/repository"
 	"github.com/zaz600/go-musthave-shortener/internal/helper"
+	"github.com/zaz600/go-musthave-shortener/internal/infrastructure/repository"
 )
 
 type Service struct {
 	*chi.Mux
-	baseURL      string
-	repository   repository.LinksRepository
-	linkRemoveCh chan<- removeUserLinksRequest
+	baseURL         string
+	linksRepository repository.LinksRepository
+	linkRemoveCh    chan<- removeUserLinksRequest
 }
 
 func NewService(baseURL string, opts ...Option) *Service {
 	s := &Service{
-		Mux:        chi.NewRouter(),
-		baseURL:    baseURL,
-		repository: nil,
+		Mux:             chi.NewRouter(),
+		baseURL:         baseURL,
+		linksRepository: nil,
 	}
 
 	for _, opt := range opts {
@@ -34,8 +34,8 @@ func NewService(baseURL string, opts ...Option) *Service {
 		}
 	}
 
-	if s.repository == nil {
-		s.repository = repository.NewInMemoryLinksRepository(context.Background(), nil)
+	if s.linksRepository == nil {
+		s.linksRepository = repository.NewInMemoryLinksRepository(context.Background(), nil)
 	}
 	s.setupHandlers()
 	s.linkRemoveCh = s.startRemoveLinksWorkers(context.Background(), 10)
@@ -68,7 +68,7 @@ func (s *Service) Shutdown(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
-	return s.repository.Close(ctx)
+	return s.linksRepository.Close(ctx)
 }
 
 func (s *Service) startRemoveLinksWorkers(ctx context.Context, count int) chan<- removeUserLinksRequest {
@@ -87,7 +87,7 @@ func (s *Service) startRemoveLinksWorkers(ctx context.Context, count int) chan<-
 						ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 						defer cancel()
 
-						err := s.repository.DeleteLinksByUID(ctx, req.uid, req.linkIDs...)
+						err := s.linksRepository.DeleteLinksByUID(ctx, req.uid, req.linkIDs...)
 						if err != nil {
 							log.Warn().Str("worker", workerID).Err(err).Strs("ids", req.linkIDs).Str("uid", req.uid).Msg("error delete user links")
 							return
