@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/zaz600/go-musthave-shortener/internal/entity"
 	"github.com/zaz600/go-musthave-shortener/internal/infrastructure/repository"
+	"github.com/zaz600/go-musthave-shortener/internal/service/batch"
 )
 
 type Service struct {
@@ -94,9 +95,8 @@ func (s *Service) Status(ctx context.Context) error {
 	return s.linksRepository.Status(ctx)
 }
 
-// GetRepo нужна на момент рефакторинга
-func (s *Service) GetRepo() repository.LinksRepository {
-	return s.linksRepository
+func (s *Service) NewBatchService(batchSize int) *batch.Service {
+	return batch.NewBatchService(batchSize, s.linksRepository)
 }
 
 func (s *Service) startRemoveLinksWorkers(ctx context.Context, count int) chan<- removeUserLinksRequest {

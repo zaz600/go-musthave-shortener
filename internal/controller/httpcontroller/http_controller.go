@@ -18,7 +18,6 @@ import (
 	"github.com/zaz600/go-musthave-shortener/internal/helper"
 	"github.com/zaz600/go-musthave-shortener/internal/infrastructure/repository"
 	"github.com/zaz600/go-musthave-shortener/internal/random"
-	"github.com/zaz600/go-musthave-shortener/internal/service/batch"
 	"github.com/zaz600/go-musthave-shortener/internal/service/shortener"
 )
 
@@ -182,7 +181,7 @@ func (s ShortenerController) ShortenBatch() http.HandlerFunc {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 		defer cancel()
-		batchService := batch.NewBatchService(100, s.linksService.GetRepo())
+		batchService := s.linksService.NewBatchService(10)
 		linkEntities := make([]entity.LinkEntity, 0, len(request))
 		for _, item := range request {
 			if !shortener.IsValidURL(item.URL) {
