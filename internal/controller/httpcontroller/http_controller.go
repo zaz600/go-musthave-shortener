@@ -49,6 +49,7 @@ func (s ShortenerController) setupHandlers() {
 	s.Get("/user/urls", s.GetUserLinks())
 	s.Delete("/api/user/urls", s.DeleteUserLinks())
 	s.Get("/ping", s.Ping())
+	s.Mount("/debug", middleware.Profiler())
 }
 
 func (s ShortenerController) GetOriginalURL() http.HandlerFunc {
