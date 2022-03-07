@@ -46,7 +46,7 @@ func (s ShortenerController) setupHandlers() {
 	s.Post("/", s.ShortenURL())
 	s.Post("/api/shorten", s.ShortenJSON())
 	s.Post("/api/shorten/batch", s.ShortenBatch())
-	s.Get("/user/urls", s.GetUserLinks())
+	s.Get("/api/user/urls", s.GetUserLinks())
 	s.Delete("/api/user/urls", s.DeleteUserLinks())
 	s.Get("/ping", s.Ping())
 	s.Mount("/debug", middleware.Profiler())
