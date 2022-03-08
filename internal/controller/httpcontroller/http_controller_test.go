@@ -408,7 +408,7 @@ func TestShortenerController_GetUserLinks(t *testing.T) {
 
 	uidCookie := extractUIDCookie(t, resGet)
 
-	res, respBody := testRequest(t, ts, "GET", "/user/urls", nil, uidCookie)
+	res, respBody := testRequest(t, ts, "GET", "/api/user/urls", nil, uidCookie)
 	res.Body.Close()
 
 	var actual []UserLinksResponseEntry
@@ -531,7 +531,7 @@ func TestShortenerController_DeleteUserLinks(t *testing.T) {
 	assert.Equal(t, len(links)+1, count)
 
 	// Ручка получения ссылок юзера не выдает удаленные ссылки
-	res, respBody := testRequest(t, ts, "GET", "/user/urls", nil, linksToDelete[0].Cookie)
+	res, respBody := testRequest(t, ts, "GET", "/api/user/urls", nil, linksToDelete[0].Cookie)
 	res.Body.Close()
 
 	var actual []UserLinksResponseEntry

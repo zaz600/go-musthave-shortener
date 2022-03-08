@@ -19,3 +19,9 @@ func TestUserID(t *testing.T) {
 	assert.Len(t, UserID(), 24)
 	assert.NotEqual(t, UserID(), UserID())
 }
+
+func BenchmarkString(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		String(10)
+	}
+}

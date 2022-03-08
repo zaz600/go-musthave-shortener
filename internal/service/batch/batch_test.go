@@ -58,3 +58,13 @@ func TestBatchService_Flush(t *testing.T) {
 	assert.Equal(t, count, nRec)
 	assert.Len(t, batch.buffer, 0)
 }
+
+func BenchmarkService_Add(b *testing.B) {
+	batchSize := 100
+	repo := repository.NewInMemoryLinksRepository(context.Background(), nil)
+	batch := NewBatchService(batchSize, repo)
+
+	for i := 0; i < b.N; i++ {
+		_ = batch.Add(context.Background(), entity.NewLinkEntity(fmt.Sprintf("http://ya.ru/?%d", i), "123456"))
+	}
+}
