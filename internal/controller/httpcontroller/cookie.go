@@ -12,18 +12,22 @@ import (
 
 const uidCookieName = "SHORTENER_UID"
 
-var ErrInvalidCookieValue = errors.New("invalid cookie value")
-var ErrInvalidCookieDigest = errors.New("invalid cookie digest")
-var ErrNoCookie = errors.New("no cookie")
+var (
+	ErrInvalidCookieValue  = errors.New("invalid cookie value")
+	ErrInvalidCookieDigest = errors.New("invalid cookie digest")
+	ErrNoCookie            = errors.New("no cookie")
+)
 
 var secret = "mysecret" // Прочитать из env/конфига
 
+// CalcHash вычисление HMAC-SHA256 для переданной строки
 func CalcHash(data string) string {
 	h := hmac.New(sha256.New, []byte(secret))
 	h.Write([]byte(data))
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// checkHash проверка хеша
 func checkHash(data string, hash string) bool {
 	h := hmac.New(sha256.New, []byte(secret))
 	h.Write([]byte(data))

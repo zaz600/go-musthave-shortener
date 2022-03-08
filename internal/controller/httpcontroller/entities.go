@@ -1,29 +1,54 @@
 package httpcontroller
 
-type ShortenRequest struct {
-	URL string `json:"url"`
-}
+type (
+	// ShortenRequest запрос на сокращение ссылки
+	ShortenRequest struct {
+		// URL ссылка, которую требуется сократить
+		URL string `json:"url"`
+	}
 
-type ShortenResponse struct {
-	Result string `json:"result"`
-	Error  string `json:"error,omitempty"`
-}
+	// ShortenResponse ответ на запрос на сокращение ссылки
+	ShortenResponse struct {
+		// Result сокращенная ссылка
+		Result string `json:"result"`
+		// Error ошибка, если возникла, при сокращении ссылки
+		Error string `json:"error,omitempty"`
+	}
+)
 
-type UserLinksResponseEntry struct {
-	ShortURL    string `json:"short_url"`
-	OriginalURL string `json:"original_url"`
-}
+type (
+	// UserLinksResponse список ссылок пользователя
+	UserLinksResponse []UserLinksResponseEntry
 
-type ShortenBatchRequest []ShortenBatchRequestItem
+	// UserLinksResponseEntry информация об одной сокращенной ссылке
+	UserLinksResponseEntry struct {
+		// ShortURL короткая ссылка
+		ShortURL string `json:"short_url"`
+		// OriginalURL длинная ссылка
+		OriginalURL string `json:"original_url"`
+	}
+)
 
-type ShortenBatchRequestItem struct {
-	URL           string `json:"original_url"`
-	CorrelationID string `json:"correlation_id"`
-}
+type (
+	// ShortenBatchRequest запрос на сокращение пачки ссылок
+	ShortenBatchRequest []ShortenBatchRequestItem
 
-type ShortenBatchResponse []ShortenBatchResponseItem
+	// ShortenBatchRequestItem элемент в запросе на сокращение пачки ссылок
+	ShortenBatchRequestItem struct {
+		// URL длинная ссылка, которую надо сократить
+		URL string `json:"original_url"`
+		// CorrelationID идентификатор ссылки во внешней системе
+		CorrelationID string `json:"correlation_id"`
+	}
 
-type ShortenBatchResponseItem struct {
-	CorrelationID string `json:"correlation_id"`
-	ShortURL      string `json:"short_url"`
-}
+	// ShortenBatchResponse ответ на запрос сокращения пачки ссылок
+	ShortenBatchResponse []ShortenBatchResponseItem
+
+	// ShortenBatchResponseItem элемент в ответе на запрос сокращения пачки ссылок
+	ShortenBatchResponseItem struct {
+		// CorrelationID идентификатор ссылки во внешней системе
+		CorrelationID string `json:"correlation_id"`
+		// ShortURL сокращенная ссылка
+		ShortURL string `json:"short_url"`
+	}
+)
