@@ -33,6 +33,7 @@ func New(linksService *shortener.Service) *ShortenerController {
 	return c
 }
 
+// setupHandlers настройка роутинга и middleware
 func (s ShortenerController) setupHandlers() {
 	s.Use(middleware.RequestID)
 	s.Use(middleware.RealIP)
@@ -52,6 +53,8 @@ func (s ShortenerController) setupHandlers() {
 	s.Mount("/debug", middleware.Profiler())
 }
 
+// GetOriginalURL возвращает http.HandlerFunc для обработки запроса на получение длинной ссылки
+// по короткому идентификатору
 func (s ShortenerController) GetOriginalURL() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		linkID := chi.URLParam(r, "linkID")
@@ -70,6 +73,8 @@ func (s ShortenerController) GetOriginalURL() http.HandlerFunc {
 	}
 }
 
+// ShortenURL возвращает http.HandlerFunc для обработки запроса на сокращение ссылки.
+// Ссылка передается через http Body запроса в виде строки.
 func (s ShortenerController) ShortenURL() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		statusHeader := http.StatusCreated
@@ -112,6 +117,9 @@ func (s ShortenerController) ShortenURL() http.HandlerFunc {
 	}
 }
 
+// ShortenJSON возвращает http.HandlerFunc для обработки запроса на сокращение ссылки.
+// Ссылка передается в http Body в виде JSON в формате ShortenRequest.
+// Ответ возвращается в формате JSON в виде ShortenResponse.
 func (s ShortenerController) ShortenJSON() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		statusHeader := http.StatusCreated
@@ -161,6 +169,9 @@ func (s ShortenerController) ShortenJSON() http.HandlerFunc {
 }
 
 //nolint:funlen
+// ShortenBatch возвращает http.HandlerFunc для обработки запроса на сокращение пачки ссылок.
+// Запрос передается в формате JSON в виде ShortenBatchRequest.
+// Ответ возвращается в формате JSON в виде ShortenBatchResponse.
 func (s ShortenerController) ShortenBatch() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		decoder := json.NewDecoder(r.Body)
@@ -224,6 +235,9 @@ func (s ShortenerController) ShortenBatch() http.HandlerFunc {
 	}
 }
 
+// GetUserLinks возвращает http.HandlerFunc для обработки запроса на получение ссылок пользователя.
+// Пользователь извлекается из cookie.
+// Ответ возвращается в формате JSON в виде UserLinksResponse.
 func (s ShortenerController) GetUserLinks() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uid, err := ExtractUID(r.Cookies())
@@ -243,7 +257,7 @@ func (s ShortenerController) GetUserLinks() http.HandlerFunc {
 			http.Error(w, "no links", http.StatusNoContent)
 			return
 		}
-		var result []UserLinksResponseEntry
+		var result UserLinksResponse
 
 		for _, e := range links {
 			result = append(result, UserLinksResponseEntry{
@@ -260,6 +274,9 @@ func (s ShortenerController) GetUserLinks() http.HandlerFunc {
 	}
 }
 
+// DeleteUserLinks возвращает http.HandlerFunc для обработки запроса на удаление ссылок пользователя
+// Удаление происходит асинхронно.
+// Список идентификаторов ссылок передается в http Body в виде строк. На каждую ссылку одна строка.
 func (s ShortenerController) DeleteUserLinks() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uid, err := ExtractUID(r.Cookies())
@@ -284,6 +301,7 @@ func (s ShortenerController) DeleteUserLinks() http.HandlerFunc {
 	}
 }
 
+// Ping -
 func (s ShortenerController) Ping() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		err := s.linksService.Status(r.Context())
@@ -295,12 +313,14 @@ func (s ShortenerController) Ping() http.HandlerFunc {
 	}
 }
 
+// writeAnswer обертка для упрощения записи ответа на запросы
 func writeAnswer(w http.ResponseWriter, contentType string, statusCode int, data interface{}) {
 	w.Header().Set("Content-Type", contentType)
 	w.WriteHeader(statusCode)
 	_, _ = fmt.Fprint(w, data)
 }
 
+// logCookieError логирует ошибку ErrInvalidCookieDigest, если она возникла
 func (s ShortenerController) logCookieError(r *http.Request, err error) {
 	if errors.Is(err, ErrInvalidCookieDigest) {
 		log.Warn().

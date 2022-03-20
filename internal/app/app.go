@@ -16,6 +16,7 @@ import (
 	"github.com/zaz600/go-musthave-shortener/internal/service/shortener"
 )
 
+// Run инициализация и запуск приложения
 func Run(args []string) (err error) {
 	ctxBg := context.Background()
 	ctx, cancel := signal.NotifyContext(ctxBg, os.Interrupt, syscall.SIGINT)

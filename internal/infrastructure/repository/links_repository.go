@@ -8,6 +8,7 @@ import (
 	"github.com/zaz600/go-musthave-shortener/internal/entity"
 )
 
+// LinksRepository интерфейс для работы с хранилищем сокращенных ссылок
 type LinksRepository interface {
 	// Get достает по linkID из репозитория информацию по сокращенной ссылке entity.LinkEntity
 	Get(ctx context.Context, linkID string) (*entity.LinkEntity, error)

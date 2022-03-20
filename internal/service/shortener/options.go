@@ -6,6 +6,7 @@ import (
 
 type Option func(*Service) error
 
+// WithRepository указание типа репозитория для сервиса
 func WithRepository(linksRepository repository.LinksRepository) Option {
 	return func(s *Service) error {
 		s.linksRepository = linksRepository

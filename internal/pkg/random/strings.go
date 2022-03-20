@@ -9,6 +9,8 @@ const charSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 var seededRand = rand.New(rand.NewSource(time.Now().UnixNano())) //nolint:gosec
 
+// String генерирует случайную строку заданной длинны,
+// содержащую букво-циферную последовательность символов.
 func String(length int) string {
 	if length < 0 {
 		return ""
