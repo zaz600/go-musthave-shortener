@@ -14,7 +14,7 @@ type LinkEntity struct {
 	UID string `json:"uid,omitempty"`
 	// CorrelationID внешний идентификатор ссылки, передаваемый через API
 	CorrelationID string `json:"correlation_id,omitempty"`
-	// Removed признак удаления ссылки
+	// Removed признак удаления ссылки. Нет ручек, которым нужен был бы этот признак
 	Removed bool `json:"-"`
 }
 

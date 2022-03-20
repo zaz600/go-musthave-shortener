@@ -28,6 +28,12 @@ func BenchmarkString(b *testing.B) {
 	}
 }
 
+func BenchmarkString100(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		random.String(100)
+	}
+}
+
 func ExampleString() {
 	fmt.Println(random.String(10))
 }
