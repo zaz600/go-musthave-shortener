@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -16,8 +17,16 @@ import (
 	"github.com/zaz600/go-musthave-shortener/internal/service/shortener"
 )
 
+var (
+	BuildVersion string
+	BuildTime    string
+	BuildCommit  string
+)
+
 // Run инициализация и запуск приложения
 func Run(args []string) (err error) {
+	printBuildInfo()
+
 	ctxBg := context.Background()
 	ctx, cancel := signal.NotifyContext(ctxBg, os.Interrupt, syscall.SIGINT)
 	defer cancel()
@@ -52,4 +61,19 @@ func Run(args []string) (err error) {
 		return err
 	}
 	return nil
+}
+
+func printBuildInfo() {
+	if BuildVersion == "" {
+		BuildVersion = "n/a"
+	}
+	if BuildTime == "" {
+		BuildTime = "n/a"
+	}
+	if BuildCommit == "" {
+		BuildCommit = "n/a"
+	}
+	fmt.Println("Build version:", BuildVersion)
+	fmt.Println("Build date:", BuildTime)
+	fmt.Println("Build commit:", BuildCommit)
 }

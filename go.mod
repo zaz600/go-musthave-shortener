@@ -10,12 +10,12 @@ require (
 	github.com/rs/zerolog v1.26.0
 	github.com/stretchr/testify v1.7.0
 	github.com/timakin/bodyclose v0.0.0-20210704033933-f49887972144
+	golang.org/x/exp v0.0.0-20220321173239-a90fa8a75705
 	golang.org/x/tools v0.1.10
 	honnef.co/go/tools v0.3.0-0.dev.0.20220306074811-23e1086441d2
 )
 
 require (
-	github.com/BurntSushi/toml v0.4.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gostaticanalysis/analysisutil v0.7.1 // indirect
 	github.com/gostaticanalysis/comment v1.4.2 // indirect

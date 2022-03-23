@@ -12,3 +12,10 @@ test:
 bench:
 	#go test -timeout=30s -cpuprofile=cpu.out -memprofile=mem.out -run=^$ -bench . ./...
 	go test -timeout=30s -cpuprofile=cpu.out -memprofile=mem.out -bench . ./internal/service/batch/...
+
+BUILD_DATE := $(shell date +'%Y/%m/%d %H:%M:%S')
+BUILD_COMMIT := $(shell git rev-parse --short HEAD)
+
+build:
+	go build -ldflags "-X github.com/zaz600/go-musthave-shortener/internal/app.BuildVersion=v1.0.1 -X 'github.com/zaz600/go-musthave-shortener/internal/app.BuildTime=$(BUILD_DATE)' -X 'github.com/zaz600/go-musthave-shortener/internal/app.BuildCommit=$(BUILD_COMMIT)'" -o ./bin/shortener ./cmd/shortener
+	#go build -ldflags "-X app.BuildVersion=v1.0.1 -X 'app.BuildTime=$(date +'%Y/%m/%d %H:%M:%S')'" -o ./bin/shortener ./cmd/shortener
