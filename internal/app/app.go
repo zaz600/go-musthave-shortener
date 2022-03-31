@@ -18,9 +18,9 @@ import (
 )
 
 var (
-	BuildVersion string
-	BuildTime    string
-	BuildCommit  string
+	BuildVersion = "n/a"
+	BuildTime    = "n/a"
+	BuildCommit  = "n/a"
 )
 
 // Run инициализация и запуск приложения
@@ -64,15 +64,6 @@ func Run(args []string) (err error) {
 }
 
 func printBuildInfo() {
-	if BuildVersion == "" {
-		BuildVersion = "n/a"
-	}
-	if BuildTime == "" {
-		BuildTime = "n/a"
-	}
-	if BuildCommit == "" {
-		BuildCommit = "n/a"
-	}
 	fmt.Println("Build version:", BuildVersion)
 	fmt.Println("Build date:", BuildTime)
 	fmt.Println("Build commit:", BuildCommit)
