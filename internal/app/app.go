@@ -14,6 +14,7 @@ import (
 	"github.com/zaz600/go-musthave-shortener/internal/app/config"
 	"github.com/zaz600/go-musthave-shortener/internal/controller/httpcontroller"
 	"github.com/zaz600/go-musthave-shortener/internal/infrastructure/repository"
+	"github.com/zaz600/go-musthave-shortener/internal/pkg/httpserver"
 	"github.com/zaz600/go-musthave-shortener/internal/service/shortener"
 )
 
@@ -57,9 +58,17 @@ func Run(args []string) (err error) {
 		}
 	}()
 
-	if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-		return err
+	switch cfg.EnableTLS {
+	case true:
+		if err := httpserver.ListenTLS(server, cfg.ServerAddress); !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+	case false:
+		if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
 	}
+
 	return nil
 }
 

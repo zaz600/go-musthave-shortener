@@ -2,6 +2,7 @@ package config
 
 import (
 	"flag"
+	"strconv"
 )
 
 const (
@@ -19,6 +20,8 @@ type ShortenConfig struct {
 	FileStoragePath string
 	// DatabaseDSN строка подключения к БД. Поддерживается PG. Параметр опциональный
 	DatabaseDSN string
+	// EnableTLS включать или нет ssl на прослушиваемом порту
+	EnableTLS bool
 }
 
 // RepoType тип хранилища для хранения БД сокращенных ссылок
@@ -58,6 +61,8 @@ func GetConfig(args []string) *ShortenConfig {
 	flag.StringVar(&cfg.BaseURL, "b", getEnvOrDefault("BASE_URL", defaultBaseURL), "base url for short link. env: BASE_URL")
 	flag.StringVar(&cfg.FileStoragePath, "f", getEnvOrDefault("FILE_STORAGE_PATH", ""), "file storage path. env: FILE_STORAGE_PATH")
 	flag.StringVar(&cfg.DatabaseDSN, "d", getEnvOrDefault("DATABASE_DSN", ""), "PG dsn. env: DATABASE_DSN")
+	enableTLS, _ := strconv.ParseBool(getEnvOrDefault("ENABLE_HTTPS", "false"))
+	flag.BoolVar(&cfg.EnableTLS, "s", enableTLS, "enable ssl. env: ENABLE_HTTPS")
 	flag.Parse()
 	return cfg
 }
