@@ -58,7 +58,7 @@ func Run(args []string) (err error) {
 		}
 	}()
 
-	switch cfg.EnableTLS {
+	switch cfg.EnableHTTPS {
 	case true:
 		if err := httpserver.ListenTLS(server, cfg.ServerAddress); !errors.Is(err, http.ErrServerClosed) {
 			return err
