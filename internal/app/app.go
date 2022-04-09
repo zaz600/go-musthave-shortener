@@ -29,7 +29,7 @@ func Run(args []string) (err error) {
 	printBuildInfo()
 
 	ctxBg := context.Background()
-	ctx, cancel := signal.NotifyContext(ctxBg, os.Interrupt, syscall.SIGINT)
+	ctx, cancel := signal.NotifyContext(ctxBg, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
 	defer cancel()
 
 	cfg := config.GetConfig(args)
