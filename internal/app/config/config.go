@@ -70,7 +70,7 @@ func getConfigFileName(args []string) string {
 // args - пока не используется
 func GetConfig(args []string) *ShortenConfig {
 	configFile := getConfigFileName(args)
-	cfg := getParamsFromFile(configFile)
+	cfg := mustGetParamsFromFile(configFile)
 
 	_ = flag.String("c", "", "config file. env: CONFIG")
 	flag.StringVar(&cfg.ServerAddress, "a", getEnvOrDefault("SERVER_ADDRESS", defaultServerAddress), "listen address. env: SERVER_ADDRESS")
@@ -83,21 +83,19 @@ func GetConfig(args []string) *ShortenConfig {
 	return &cfg
 }
 
-func getParamsFromFile(configFile string) ShortenConfig {
+func mustGetParamsFromFile(configFile string) ShortenConfig {
 	if configFile == "" {
 		return ShortenConfig{}
 	}
 	f, err := os.Open(configFile)
 	if err != nil {
-		log.Warn().Err(err).Msg("error opening config file")
-		return ShortenConfig{}
+		log.Panic().Err(err).Msg("error opening config file")
 	}
 	defer f.Close()
 	var configJSON ShortenConfig
 	err = json.NewDecoder(f).Decode(&configJSON)
 	if err != nil {
-		log.Warn().Err(err).Msg("error reading config file")
-		return ShortenConfig{}
+		log.Panic().Err(err).Msg("error reading config file")
 	}
 	return configJSON
 }
