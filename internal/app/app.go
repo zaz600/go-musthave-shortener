@@ -60,7 +60,7 @@ func Run(args []string) (err error) {
 
 	switch cfg.EnableHTTPS {
 	case true:
-		if err := httpserver.ListenTLS(server, cfg.ServerAddress); !errors.Is(err, http.ErrServerClosed) {
+		if err := httpserver.NewTLSServer(server, cfg.ServerAddress).ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			return err
 		}
 	case false:
@@ -68,7 +68,6 @@ func Run(args []string) (err error) {
 			return err
 		}
 	}
-
 	return nil
 }
 

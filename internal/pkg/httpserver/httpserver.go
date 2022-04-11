@@ -9,8 +9,11 @@ import (
 	"github.com/zaz600/go-musthave-shortener/internal/pkg/cert"
 )
 
+const _defaultKeepAlivePeriod = 3 * time.Minute
+
 type tcpKeepAliveListener struct {
 	*net.TCPListener
+	keepAlivePeriod time.Duration
 }
 
 func (ln tcpKeepAliveListener) Accept() (c net.Conn, err error) {
@@ -19,11 +22,25 @@ func (ln tcpKeepAliveListener) Accept() (c net.Conn, err error) {
 		return
 	}
 	tc.SetKeepAlive(true)
-	tc.SetKeepAlivePeriod(3 * time.Minute)
+	tc.SetKeepAlivePeriod(_defaultKeepAlivePeriod)
 	return tc, nil
 }
 
-func ListenTLS(server *http.Server, address string) error {
+type TLSServer struct {
+	server          *http.Server
+	keepAlivePeriod time.Duration
+	address         string
+}
+
+func NewTLSServer(server *http.Server, address string) *TLSServer { // TODO опшины
+	return &TLSServer{
+		server:          server,
+		keepAlivePeriod: _defaultKeepAlivePeriod,
+		address:         address,
+	}
+}
+
+func (t TLSServer) ListenAndServe() error {
 	tlsCert, err := cert.New()
 	if err != nil {
 		return err
@@ -33,12 +50,12 @@ func ListenTLS(server *http.Server, address string) error {
 	tlsConfig.NextProtos = []string{"http/1.1"}
 	tlsConfig.Certificates = []tls.Certificate{tlsCert}
 
-	ln, err := net.Listen("tcp", address)
+	ln, err := net.Listen("tcp", t.address)
 	if err != nil {
 		return err
 	}
 
-	tlsListener := tls.NewListener(tcpKeepAliveListener{ln.(*net.TCPListener)}, tlsConfig)
+	tlsListener := tls.NewListener(tcpKeepAliveListener{ln.(*net.TCPListener), t.keepAlivePeriod}, tlsConfig)
 
-	return server.Serve(tlsListener)
+	return t.server.Serve(tlsListener)
 }
