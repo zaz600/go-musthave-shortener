@@ -1,7 +1,12 @@
 package config
 
 import (
+	"encoding/json"
 	"flag"
+	"os"
+	"strconv"
+
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -12,13 +17,15 @@ const (
 // ShortenConfig настройки приложения
 type ShortenConfig struct {
 	// BaseURL базовый адрес для сокращения ссылок - {BaseURL}/{shortID}
-	BaseURL string
+	BaseURL string `json:"base_url"`
 	// ServerAddress адрес для прослушивания входящих запросов
-	ServerAddress string
+	ServerAddress string `json:"server_address"`
 	// FileStoragePath путь к файлу для хранения БД сокращенных ссылок. Опциональный параметр.
-	FileStoragePath string
+	FileStoragePath string `json:"file_storage_path"`
 	// DatabaseDSN строка подключения к БД. Поддерживается PG. Параметр опциональный
-	DatabaseDSN string
+	DatabaseDSN string `json:"database_dsn"`
+	// EnableHTTPS включать или нет ssl на прослушиваемом порту
+	EnableHTTPS bool `json:"enable_https"`
 }
 
 // RepoType тип хранилища для хранения БД сокращенных ссылок
@@ -49,15 +56,46 @@ func (s ShortenConfig) GetRepositoryType() RepoType {
 	return MemoryRepo
 }
 
+func getConfigFileName(args []string) string {
+	for i := 0; i < len(args); i++ {
+		if args[i] == "-c" && i+1 < len(args) {
+			return args[i+1]
+		}
+	}
+	return ""
+}
+
 // GetConfig возвращает конфигурацию приложения, вычитывая в таком порядке
 // аргументы командной строки -> env
 // args - пока не используется
 func GetConfig(args []string) *ShortenConfig {
-	cfg := &ShortenConfig{}
+	configFile := getConfigFileName(args)
+	cfg := mustGetParamsFromFile(configFile)
+
+	_ = flag.String("c", "", "config file. env: CONFIG")
 	flag.StringVar(&cfg.ServerAddress, "a", getEnvOrDefault("SERVER_ADDRESS", defaultServerAddress), "listen address. env: SERVER_ADDRESS")
 	flag.StringVar(&cfg.BaseURL, "b", getEnvOrDefault("BASE_URL", defaultBaseURL), "base url for short link. env: BASE_URL")
-	flag.StringVar(&cfg.FileStoragePath, "f", getEnvOrDefault("FILE_STORAGE_PATH", ""), "file storage path. env: FILE_STORAGE_PATH")
-	flag.StringVar(&cfg.DatabaseDSN, "d", getEnvOrDefault("DATABASE_DSN", ""), "PG dsn. env: DATABASE_DSN")
+	flag.StringVar(&cfg.FileStoragePath, "f", getEnvOrDefault("FILE_STORAGE_PATH", cfg.FileStoragePath), "file storage path. env: FILE_STORAGE_PATH")
+	flag.StringVar(&cfg.DatabaseDSN, "d", getEnvOrDefault("DATABASE_DSN", cfg.DatabaseDSN), "PG dsn. env: DATABASE_DSN")
+	enableHTTPS, _ := strconv.ParseBool(getEnvOrDefault("ENABLE_HTTPS", strconv.FormatBool(cfg.EnableHTTPS)))
+	flag.BoolVar(&cfg.EnableHTTPS, "s", enableHTTPS, "enable ssl. env: ENABLE_HTTPS")
 	flag.Parse()
-	return cfg
+	return &cfg
+}
+
+func mustGetParamsFromFile(configFile string) ShortenConfig {
+	if configFile == "" {
+		return ShortenConfig{}
+	}
+	f, err := os.Open(configFile)
+	if err != nil {
+		log.Panic().Err(err).Msg("error opening config file")
+	}
+	defer f.Close()
+	var configJSON ShortenConfig
+	err = json.NewDecoder(f).Decode(&configJSON)
+	if err != nil {
+		log.Panic().Err(err).Msg("error reading config file")
+	}
+	return configJSON
 }

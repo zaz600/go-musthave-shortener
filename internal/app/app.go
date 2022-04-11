@@ -14,6 +14,7 @@ import (
 	"github.com/zaz600/go-musthave-shortener/internal/app/config"
 	"github.com/zaz600/go-musthave-shortener/internal/controller/httpcontroller"
 	"github.com/zaz600/go-musthave-shortener/internal/infrastructure/repository"
+	"github.com/zaz600/go-musthave-shortener/internal/pkg/httpserver"
 	"github.com/zaz600/go-musthave-shortener/internal/service/shortener"
 )
 
@@ -28,7 +29,7 @@ func Run(args []string) (err error) {
 	printBuildInfo()
 
 	ctxBg := context.Background()
-	ctx, cancel := signal.NotifyContext(ctxBg, os.Interrupt, syscall.SIGINT)
+	ctx, cancel := signal.NotifyContext(ctxBg, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
 	defer cancel()
 
 	cfg := config.GetConfig(args)
@@ -57,8 +58,15 @@ func Run(args []string) (err error) {
 		}
 	}()
 
-	if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-		return err
+	switch cfg.EnableHTTPS {
+	case true:
+		if err := httpserver.NewTLSServer(server, cfg.ServerAddress).ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+	case false:
+		if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
 	}
 	return nil
 }
